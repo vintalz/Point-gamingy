@@ -151,16 +151,71 @@
 </section>
 
 <section id="settings" class="section">
-<div class="top"><div><div class="title">Settings ⚙️</div><div class="sub">Automatic saving, version history and data management.</div></div></div>
-<div class="panel">
-<div class="panelHead"><div><div class="panelTitle">Automatic Backups</div><div class="panelSub">Data is saved automatically whenever you make a change, and important changes create a versioned backup.</div></div><span class="badge" id="backupCount">0 backups</span></div>
-<div class="notice">Backups are kept separately for each account. The newest 20 versions are retained. This protects you from accidental changes or resets.</div>
-<button class="btn" onclick="showBackups()">🕘 View Backup History</button>
-<button class="btn" onclick="exportCurrent()">📤 Export Current Account</button>
-<button class="btn" onclick="document.getElementById('import').click()">📥 Import Account</button>
-<button class="btn danger" onclick="resetAccount()">🗑️ Reset Current Account</button>
-<input id="import" type="file" accept=".json" hidden onchange="importAccount(event)">
-</div>
+  <div class="top">
+    <div>
+      <div class="title">Settings ⚙️</div>
+      <div class="sub">Automatic saving, version history and separate data reset controls.</div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:15px">
+    <div class="panelHead">
+      <div>
+        <div class="panelTitle">Automatic Saving & Backups</div>
+        <div class="panelSub">Your data is saved automatically whenever changes are made.</div>
+      </div>
+      <span class="badge" id="backupCount">0 backups</span>
+    </div>
+    <div class="notice">Backups are kept separately for each account. Important changes create a versioned backup so you can recover from accidental changes.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" onclick="showBackups()">🕘 View Backup History</button>
+      <button class="btn" onclick="exportCurrent()">📤 Export Current Account</button>
+      <button class="btn" onclick="document.getElementById('import').click()">📥 Import Account</button>
+      <input id="import" type="file" accept=".json" hidden onchange="importAccount(event)">
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panelTitle">Reset Controls</div>
+    <div class="panelSub" style="margin-top:4px;margin-bottom:15px">Reset only the part you choose. Your other data remains untouched.</div>
+
+    <div class="shopGrid">
+      <div class="card">
+        <div class="icon">📅</div>
+        <h3>Reset Schedule</h3>
+        <div class="desc">Delete all schedules and weekly planning. Points, quests and shop data stay intact.</div>
+        <div class="cardBottom"><span></span><button class="btn danger" onclick="resetSchedule()">↻ Reset Schedule</button></div>
+      </div>
+
+      <div class="card">
+        <div class="icon">⭐</div>
+        <h3>Reset Points</h3>
+        <div class="desc">Reset current points and point statistics. Your schedules and quests stay intact.</div>
+        <div class="cardBottom"><span></span><button class="btn danger" onclick="resetPoints()">↻ Reset Points</button></div>
+      </div>
+
+      <div class="card">
+        <div class="icon">⚔️</div>
+        <h3>Reset Quests</h3>
+        <div class="desc">Reset side-quest completion history. Your schedule, points and Point Shop stay intact.</div>
+        <div class="cardBottom"><span></span><button class="btn danger" onclick="resetQuests()">↻ Reset Quests</button></div>
+      </div>
+
+      <div class="card">
+        <div class="icon">🛒</div>
+        <h3>Reset Point Shop</h3>
+        <div class="desc">Restore the Point Shop to its default rewards and clear its purchase history.</div>
+        <div class="cardBottom"><span></span><button class="btn danger" onclick="resetShop()">↻ Reset Point Shop</button></div>
+      </div>
+
+      <div class="card" style="grid-column:1/-1">
+        <div class="icon">⚠️</div>
+        <h3>Reset Everything</h3>
+        <div class="desc">Completely reset this account: points, schedule, quests, Point Shop, statistics and activity history.</div>
+        <div class="cardBottom"><span class="danger"><b>This cannot be undone.</b></span><button class="btn danger" onclick="resetAccount()">🗑️ Reset Everything</button></div>
+      </div>
+    </div>
+  </div>
 </section>
 </main></div>
 
@@ -386,7 +441,60 @@ function backup(reason){let u=user();u.backups.push({version:u.backups.length+1,
 function showBackups(){let u=user();modal("Backup History",u.backups.length?u.backups.slice().reverse().map(b=>`<div class="card"><b>Version ${b.version}</b><div class="desc">${esc(b.reason)} · ${new Date(b.date).toLocaleString()}</div></div>`).join(""):'<div class="empty">No backups yet.</div>',closeModal)}
 function exportCurrent(){let u=user();let blob=new Blob([JSON.stringify(u,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`lifequest-${u.name.replace(/\W+/g,"-")}.json`;a.click();URL.revokeObjectURL(a.href)}
 function importAccount(e){let file=e.target.files[0];if(!file)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.name||!Array.isArray(x.schedules))throw 0;x.id=crypto.randomUUID();x.backups=x.backups||[];db.accounts[x.id]=x;activeId=x.id;db.active=x.id;persist();render();toast("Imported","Account restored successfully.")}catch{toast("Import failed","Invalid LifeQuest backup.")}};r.readAsText(file)}
-function resetAccount(){if(!confirm("Reset the current account? This deletes its points, schedules, quests and history."))return;let old=user(),fresh=newAccount(old.name);fresh.id=old.id;db.accounts[activeId]=fresh;backup("Reset account");render();toast("Account reset","A fresh account has been created.")}
+function resetSchedule(){
+  if(!confirm("Reset ALL schedules? This will remove the weekly schedule and its completion history, but keep points, quests and shop."))return;
+  const u=user();
+  u.schedules=[];
+  u.completedToday={};
+  u.completionHistory={};
+  backup("Reset schedule");
+  render();
+  toast("Schedule reset","All schedules and schedule history were cleared.");
+}
+function resetPoints(){
+  if(!confirm("Reset ALL points and point statistics? Schedules, quests and shop will remain."))return;
+  const u=user();
+  u.points=0;
+  u.lifetimeEarned=0;
+  u.lifetimeSpent=0;
+  u.totalTasks=0;
+  u.totalPurchases=0;
+  u.purchaseHistory=[];
+  u.activityLog=(u.activityLog||[]).filter(x=>x.type!=="schedule"&&x.type!=="reward");
+  backup("Reset points");
+  render();
+  toast("Points reset","All point balances and point statistics were cleared.");
+}
+function resetQuests(){
+  if(!confirm("Reset ALL side quests? This will clear quest completion history, but keep schedules, points and shop."))return;
+  const u=user();
+  u.completedQuests={};
+  u.activityLog=(u.activityLog||[]).filter(x=>x.type!=="quest");
+  backup("Reset quests");
+  render();
+  toast("Quests reset","Quest completion history was cleared.");
+}
+function resetShop(){
+  if(!confirm("Reset the Point Shop? Custom rewards will be replaced by the default shop and purchase history will be cleared."))return;
+  const u=user();
+  const fresh=newAccount(u.name);
+  u.shop=fresh.shop;
+  u.purchaseHistory=[];
+  u.totalPurchases=0;
+  u.activityLog=(u.activityLog||[]).filter(x=>x.type!=="reward");
+  backup("Reset Point Shop");
+  render();
+  toast("Point Shop reset","The default rewards were restored.");
+}
+function resetAccount(){
+  if(!confirm("RESET EVERYTHING for this account? All points, schedules, quests, Point Shop, statistics and history will be deleted."))return;
+  const old=user(),fresh=newAccount(old.name);
+  fresh.id=old.id;
+  db.accounts[activeId]=fresh;
+  backup("Reset everything");
+  render();
+  toast("Everything reset","This account has been returned to a fresh state.");
+}
 function f(id){return document.getElementById(id).value}
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
 function attr(v){return esc(v)}
