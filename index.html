@@ -28,13 +28,23 @@
 @media(max-width:760px){.sidebar{display:none}.main{margin:0;width:100%;padding:17px}.mobile{display:flex;margin-bottom:18px}.top{flex-direction:column}.date{text-align:left}.shopGrid,.questGrid,.userGrid,.exerciseList{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}}
 
 .tableWrap{width:100%;overflow-x:auto}
-.weekTable,.statsTable{width:100%;border-collapse:separate;border-spacing:0;min-width:980px}
-.weekTable th,.statsTable th{background:#080e1a;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;padding:12px;border-bottom:1px solid var(--line);text-align:left}
-.weekTable td,.statsTable td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:10px;vertical-align:top}
-.weekTable td:first-child,.weekTable th:first-child{border-left:1px solid var(--line)}
-.weekCell{background:#111c30aa;border:1px solid var(--line);border-radius:10px;padding:9px;min-height:46px}
+.weekTable,.statsTable,.historyTable{width:100%;border-collapse:separate;border-spacing:0;min-width:1050px}
+.weekTable th,.statsTable th,.historyTable th{background:#080e1a;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;padding:12px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+.weekTable td,.statsTable td,.historyTable td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:10px;vertical-align:top}
+.weekTable td:first-child,.weekTable th:first-child,.statsTable td:first-child,.statsTable th:first-child{border-left:1px solid var(--line)}
+.weekCell{background:#111c30aa;border:1px solid var(--line);border-radius:10px;padding:9px;min-height:52px}
 .weekCell b{display:block;font-size:13px}.weekCell small{display:block;color:var(--muted);margin-top:4px}
+.weekCell .miniActions{margin-top:7px;display:flex;gap:5px}
 .emptyCell{color:#53627e;text-align:center;padding:14px}
+.dayChecks{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
+.dayCheck{display:flex;gap:7px;align-items:center;background:#080e1a;border:1px solid var(--line);padding:9px;border-radius:8px}
+.filterRow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.filterRow select{background:#080e1a;color:white;border:1px solid var(--line);padding:9px;border-radius:9px}
+.metricGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:12px}
+.miniMetric{background:#111c30aa;border:1px solid var(--line);border-radius:12px;padding:12px}
+.miniMetric b{font-size:20px;display:block}.miniMetric small{color:var(--muted)}
+@media(max-width:1200px){.metricGrid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:760px){.metricGrid{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
@@ -44,65 +54,106 @@
   <nav class="nav">
     <button class="active" onclick="nav('dashboard',this)">📊 Dashboard</button>
     <button onclick="nav('schedule',this)">📅 Schedule</button>
+    <button onclick="nav('shop',this)">🛒 Point Shop</button>
+    <button onclick="nav('quests',this)">⚔️ Side Quests</button>
+    <button onclick="nav('users',this)">👥 Users</button>
     <button onclick="nav('stats',this)">📈 Statistics</button>
     <button onclick="nav('settings',this)">⚙️ Settings</button>
   </nav>
-  <div class="accountMini"><strong id="miniName">Guest</strong><small>Account member</small></div>
+  <div class="accountMini"><strong id="miniName">Guest</strong><small id="miniPoints">0 ⭐</small></div>
 </aside>
 
 <main class="main">
 <div class="mobile"><div class="brand"><div class="brandIcon">⚡</div><b>Life<span>Quest</span></b></div></div>
 
 <section id="dashboard" class="section active">
-  <div class="top"><div><div class="title">Dashboard ⚡</div><div class="sub">Your schedule and performance overview.</div></div><div class="date" id="date"></div></div>
+  <div class="top"><div><div class="title">Dashboard ⚡</div><div class="sub">Complete missions, earn points, and spend them intentionally.</div></div><div class="date" id="date"></div></div>
   <div class="stats">
+    <div class="stat"><div class="label">Available Points</div><div class="value" id="points">0</div><div class="gold">⭐ Spend or save</div></div>
     <div class="stat"><div class="label">Today's Progress</div><div class="value" id="percent">0%</div><div class="sub" id="taskCount">0 / 0</div></div>
     <div class="stat"><div class="label">Current Streak</div><div class="value">🔥 <span id="streak">0</span></div><div class="green">Consistency</div></div>
-    <div class="stat"><div class="label">Lifetime Completed</div><div class="value" id="earned">0</div><div class="green">Total points earned</div></div>
-    <div class="stat"><div class="label">Joined Web</div><div class="value" id="joinedDate" style="font-size:20px">—</div><div class="sub" id="joinedDays">—</div></div>
+    <div class="stat"><div class="label">Lifetime Earned</div><div class="value" id="earned">0</div><div class="green">Total earned</div></div>
   </div>
-  <div class="panel">
-    <div class="panelHead"><div><div class="panelTitle">Today's Schedule</div><div class="panelSub">Complete each scheduled activity to record your progress.</div></div><button class="btn primary" onclick="scheduleModal()">＋ Add Schedule</button></div>
-    <div id="dashTasks" class="taskList"></div>
-    <div class="progressTop"><span>Daily completion</span><span id="progressText">0 / 0</span></div>
-    <div class="progress"><div class="bar" id="dailyBar"></div></div>
+  <div class="grid">
+    <div class="panel"><div class="panelHead"><div><div class="panelTitle">Today's Missions</div><div class="panelSub">Your recurring schedule.</div></div><button class="btn primary" onclick="scheduleModal()">＋ Add</button></div><div id="dashTasks" class="taskList"></div><div class="progressTop"><span>Daily completion</span><span id="progressText">0 / 0</span></div><div class="progress"><div class="bar" id="dailyBar"></div></div></div>
+    <div class="panel"><div class="panelHead"><div><div class="panelTitle">Quick Rewards</div><div class="panelSub">Spend earned points.</div></div></div><div id="quickShop"></div></div>
   </div>
 </section>
 
 <section id="schedule" class="section">
-  <div class="top"><div><div class="title">Weekly Schedule 📅</div><div class="sub">A compact Monday–Sunday view. Edit any activity directly.</div></div><button class="btn primary" onclick="scheduleModal()">＋ New Schedule</button></div>
-  <div class="panel"><div class="tableWrap"><table class="weekTable">
+<div class="top"><div><div class="title">Weekly Schedule 📅</div><div class="sub">Plan the full week in one table. Each schedule can have its own days, time and points.</div></div><button class="btn primary" onclick="scheduleModal()">＋ New Schedule</button></div>
+<div class="panel">
+  <div class="filterRow">
+    <button class="btn" onclick="setScheduleFilter('all')">All</button>
+    <button class="btn" onclick="setScheduleFilter('weekday')">Mon–Fri</button>
+    <button class="btn" onclick="setScheduleFilter('weekend')">Weekend</button>
+  </div>
+  <div class="tableWrap"><table class="weekTable">
     <thead><tr><th>Time</th><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th><th>Saturday</th><th>Sunday</th></tr></thead>
     <tbody id="weekTableBody"></tbody>
-  </table></div></div>
+  </table></div>
+</div>
 </section>
 
+<section id="shop" class="section">
+<div class="top"><div><div class="title">Point Shop 🛒</div><div class="sub">Rewards are automatically deducted from your balance.</div></div><button class="btn primary" onclick="shopModal()">＋ Add Reward</button></div>
+<div class="panel"><div class="panelHead"><div><div class="panelTitle">Your Balance: <span class="gold" id="shopBalance">0</span> ⭐</div></div></div><div id="shopGrid" class="shopGrid"></div></div>
+</section>
 
+<section id="quests" class="section">
+<div class="top"><div><div class="title">Side Quests ⚔️</div><div class="sub">Organized by category so small actions and big achievements stay separate.</div></div><button class="btn primary" onclick="questModal()">＋ New Quest</button></div>
+<div class="notice">Exercise quests are intentionally short and reasonable. Stop if something hurts, and don't use the point system to pressure yourself into excessive exercise.</div>
+<div class="panel"><div id="questArea"></div></div>
+</section>
 
-
-
-
+<section id="users" class="section">
+<div class="top"><div><div class="title">Users 👥</div><div class="sub">Switch between local LifeQuest accounts on this browser.</div></div><button class="btn primary" onclick="accountModal()">＋ Add Account</button></div>
+<div class="notice"><b>Local account mode:</b> accounts are stored in this browser. They are not yet internet-connected accounts. For true multi-device accounts, a secure backend/authentication service is required.</div>
+<div class="panel"><div id="userGrid" class="userGrid"></div></div>
+</section>
 
 <section id="stats" class="section">
-  <div class="top"><div><div class="title">Statistics 📈</div><div class="sub">Automatically calculated from your schedule history.</div></div></div>
+  <div class="top"><div><div class="title">Statistics 📈</div><div class="sub">Complete performance, point economy, streaks and schedule completion.</div></div></div>
+
   <div class="stats">
-    <div class="stat"><div class="label">Today</div><div class="value" id="stToday">0%</div><div class="sub" id="stTodaySub">0 / 0</div></div>
-    <div class="stat"><div class="label">This Week</div><div class="value" id="stWeek">0%</div><div class="sub" id="stWeekSub">0 / 0</div></div>
-    <div class="stat"><div class="label">This Month</div><div class="value" id="stMonth">0%</div><div class="sub" id="stMonthSub">0 / 0</div></div>
-    <div class="stat"><div class="label">All Time</div><div class="value" id="stAll">0%</div><div class="sub" id="stAllSub">0 / 0</div></div>
+    <div class="stat"><div class="label">Lifetime Earned</div><div class="value" id="sEarned">0</div></div>
+    <div class="stat"><div class="label">Lifetime Spent</div><div class="value" id="sSpent">0</div></div>
+    <div class="stat"><div class="label">Tasks Completed</div><div class="value" id="sTasks">0</div></div>
+    <div class="stat"><div class="label">Rewards Bought</div><div class="value" id="sPurchases">0</div></div>
+    <div class="stat"><div class="label">Current Streak</div><div class="value">🔥 <span id="sStreak">0</span></div></div>
+    <div class="stat"><div class="label">Joined Web</div><div class="value" id="sJoined" style="font-size:18px">—</div></div>
   </div>
-  <div class="panel"><div class="panelTitle">Performance by Time Frame</div>
+
+  <div class="panel" style="margin-bottom:15px">
+    <div class="panelTitle">Performance by Time Frame</div>
+    <div class="metricGrid">
+      <div class="miniMetric"><b id="stToday">0%</b><small>Today · <span id="stTodaySub">0 / 0</span></small></div>
+      <div class="miniMetric"><b id="stWeek">0%</b><small>This Week · <span id="stWeekSub">0 / 0</span></small></div>
+      <div class="miniMetric"><b id="stMonth">0%</b><small>This Month · <span id="stMonthSub">0 / 0</span></small></div>
+      <div class="miniMetric"><b id="stQuarter">0%</b><small>This Quarter · <span id="stQuarterSub">0 / 0</span></small></div>
+      <div class="miniMetric"><b id="stAll">0%</b><small>All Time · <span id="stAllSub">0 / 0</span></small></div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:15px">
+    <div class="panelTitle">Time Frame Detail</div>
     <div class="tableWrap" style="margin-top:14px"><table class="statsTable">
       <thead><tr><th>Time frame</th><th>Scheduled</th><th>Completed</th><th>Completion rate</th></tr></thead>
       <tbody id="statsTableBody"></tbody>
     </table></div>
   </div>
+
+  <div class="panel">
+    <div class="panelHead"><div><div class="panelTitle">Point Economy</div><div class="panelSub">Earned vs spent points.</div></div></div>
+    <div class="progressTop"><span>Earned</span><span id="economyLabel">0</span></div>
+    <div class="progress"><div class="bar" id="economyBar"></div></div>
+  </div>
 </section>
 
 <section id="settings" class="section">
-<div class="top"><div><div class="title">Settings ⚙️</div><div class="sub">Automatic saving and data management.</div></div></div>
+<div class="top"><div><div class="title">Settings ⚙️</div><div class="sub">Automatic saving, version history and data management.</div></div></div>
 <div class="panel">
-<div class="panelHead"><div><div class="panelTitle">Automatic Backups</div><div class="panelSub">Data is saved automatically in this browser whenever you make a change.</div></div><span class="badge" id="backupCount">0 backups</span></div>
+<div class="panelHead"><div><div class="panelTitle">Automatic Backups</div><div class="panelSub">Data is saved automatically whenever you make a change, and important changes create a versioned backup.</div></div><span class="badge" id="backupCount">0 backups</span></div>
 <div class="notice">Backups are kept separately for each account. The newest 20 versions are retained. This protects you from accidental changes or resets.</div>
 <button class="btn" onclick="showBackups()">🕘 View Backup History</button>
 <button class="btn" onclick="exportCurrent()">📤 Export Current Account</button>
@@ -124,13 +175,13 @@ if(!db){
   db={active:id,accounts:{[id]:newAccount("Quest Master")}};
   persist();
 }
-let activeId=db.active;
+let activeId=db.active; Object.values(db.accounts).forEach(migrateSchedules);
 
 function newAccount(name){
  return {
   id:crypto.randomUUID(),name,createdAt:new Date().toISOString(),
   points:0,lifetimeEarned:0,lifetimeSpent:0,streak:0,lastActiveDay:null,
-  totalTasks:0,totalPurchases:0,completedToday:{},completionHistory:{},completedQuests:{},purchaseHistory:[],
+  totalTasks:0,totalPurchases:0,completedToday:{},completionHistory:{},completedQuests:{},purchaseHistory:[],activityLog:[],
   backups:[],
   schedules:[
    {id:crypto.randomUUID(),name:"Wake up",time:"07:00",reward:20,days:[0,1,2,3,4,5,6]},
@@ -169,32 +220,41 @@ function render(){
   const u=user(),d=day();
   if(!u.completedToday[d])u.completedToday[d]={};
   if(!u.completionHistory)u.completionHistory={};
+  if(!u.activityLog)u.activityLog=[];
   migrateSchedules(u);
   document.getElementById("date").textContent=new Date().toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+  document.getElementById("points").textContent=u.points.toLocaleString();
   document.getElementById("earned").textContent=u.lifetimeEarned.toLocaleString();
   document.getElementById("streak").textContent=u.streak;
-  const joined=new Date(u.createdAt);
-  document.getElementById("joinedDate").textContent=joined.toLocaleDateString(undefined,{day:"2-digit",month:"short",year:"numeric"});
-  document.getElementById("joinedDays").textContent="Created "+joined.toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short"});
-  const total=getSchedulesForDate(u,new Date()).length,done=Object.keys(u.completedToday[d]).length,p=total?Math.round(done/total*100):0;
+  document.getElementById("miniName").textContent=u.name;
+  document.getElementById("miniPoints").textContent=u.points.toLocaleString()+" ⭐";
+  document.getElementById("shopBalance").textContent=u.points.toLocaleString();
+
+  const todaySchedules=getSchedulesForDate(u,new Date()),done=Object.keys(u.completedToday[d]).length,total=todaySchedules.length,p=total?Math.round(done/total*100):0;
   document.getElementById("percent").textContent=p+"%";
   document.getElementById("taskCount").textContent=`${done} / ${total} missions`;
   document.getElementById("progressText").textContent=`${done} / ${total}`;
   document.getElementById("dailyBar").style.width=p+"%";
+
+  const joined=new Date(u.createdAt);
+  const joinedText=joined.toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short"});
+  document.getElementById("sJoined").textContent=joinedText;
+
   renderTasks("dashTasks",false);
   renderWeekTable();
-  renderStats();
+  renderShop();renderQuests();renderUsers();renderStats();
   document.getElementById("backupCount").textContent=u.backups.length+" backups";
   persist();
 }
 
-function getSchedulesForDate(u,date){
-  const dow=date.getDay();
-  return [...u.schedules].filter(t=>(t.days||[0,1,2,3,4,5,6]).includes(dow)).sort((a,b)=>a.time.localeCompare(b.time));
-}
 function migrateSchedules(u){
   (u.schedules||[]).forEach(t=>{if(!Array.isArray(t.days))t.days=[0,1,2,3,4,5,6]});
   if(!u.completionHistory)u.completionHistory={};
+  if(!u.activityLog)u.activityLog=[];
+}
+function getSchedulesForDate(u,date){
+  const dow=date.getDay();
+  return [...u.schedules].filter(t=>(t.days||[0,1,2,3,4,5,6]).includes(dow)).sort((a,b)=>a.time.localeCompare(b.time));
 }
 function renderTasks(id,actions){
   const box=document.getElementById(id),u=user(),d=day(),arr=getSchedulesForDate(u,new Date());
@@ -202,18 +262,23 @@ function renderTasks(id,actions){
   box.innerHTML=arr.map(t=>{let done=!!u.completedToday[d][t.id];return `<div class="task ${done?"done":""}">
     <button class="check" ${done?"disabled":""} onclick="completeSchedule('${t.id}')">${done?"✓":""}</button>
     <div class="taskInfo"><div class="taskName">${esc(t.name)}</div><div class="taskTime">⏰ ${esc(t.time)}</div></div>
-    ${actions?`<button class="btn" onclick="scheduleModal('${t.id}')">✏️</button><button class="btn danger" onclick="deleteSchedule('${t.id}')">×</button>`:""}
+    <div class="reward">+${t.reward} ⭐</div>${actions?`<button class="btn" onclick="scheduleModal('${t.id}')">✏️</button><button class="btn danger" onclick="deleteSchedule('${t.id}')">×</button>`:""}
   </div>`}).join("");
 }
+let scheduleFilter="all";
+function setScheduleFilter(f){scheduleFilter=f;renderWeekTable()}
 function renderWeekTable(){
   const u=user(),body=document.getElementById("weekTableBody"),days=[1,2,3,4,5,6,0];
-  const times=[...new Set(u.schedules.map(x=>x.time))].sort();
-  if(!times.length){body.innerHTML='<tr><td colspan="8" class="empty">No schedules yet.</td></tr>';return}
+  let schedules=[...u.schedules];
+  if(scheduleFilter==="weekday")schedules=schedules.filter(t=>(t.days||[]).some(d=>[1,2,3,4,5].includes(d)));
+  if(scheduleFilter==="weekend")schedules=schedules.filter(t=>(t.days||[]).some(d=>[0,6].includes(d)));
+  const times=[...new Set(schedules.map(x=>x.time))].sort();
+  if(!times.length){body.innerHTML='<tr><td colspan="8" class="empty">No schedules match this filter.</td></tr>';return}
   body.innerHTML=times.map(time=>{
     const cells=days.map(dow=>{
-      const items=u.schedules.filter(t=>t.time===time&&(t.days||[0,1,2,3,4,5,6]).includes(dow));
+      const items=schedules.filter(t=>t.time===time&&(t.days||[0,1,2,3,4,5,6]).includes(dow));
       if(!items.length)return '<td><div class="emptyCell">—</div></td>';
-      return '<td>'+items.map(t=>`<div class="weekCell"><b>${esc(t.name)}</b><small>${t.reward||0} pts</small><div style="margin-top:7px"><button class="btn" onclick="scheduleModal('${t.id}')">Edit</button></div></div>`).join('')+'</td>';
+      return '<td>'+items.map(t=>`<div class="weekCell"><b>${esc(t.name)}</b><small>+${t.reward} ⭐</small><div class="miniActions"><button class="btn" onclick="scheduleModal('${t.id}')">Edit</button><button class="btn danger" onclick="deleteSchedule('${t.id}')">×</button></div></div>`).join('')+'</td>';
     }).join('');
     return `<tr><th>${esc(time)}</th>${cells}</tr>`;
   }).join('');
@@ -221,16 +286,73 @@ function renderWeekTable(){
 
 function completeSchedule(id){
  const u=user(),d=day();if(u.completedToday[d][id])return;let t=u.schedules.find(x=>x.id===id);if(!t)return;
- u.completedToday[d][id]=true;u.completionHistory[d]=(u.completionHistory[d]||{});u.completionHistory[d][id]=true;u.points+=t.reward;u.lifetimeEarned+=t.reward;u.totalTasks++;
+ u.completedToday[d][id]=true;u.completionHistory[d]=(u.completionHistory[d]||{});u.completionHistory[d][id]=true;u.points+=t.reward;u.lifetimeEarned+=t.reward;u.totalTasks++;u.activityLog.push({type:"schedule",name:t.name,date:new Date().toISOString(),points:t.reward});
  updateStreak();backup("Completed schedule");toast("Mission complete 🎉",`+${t.reward} points`);
  render();
 }
 function updateStreak(){let u=user(),d=day();if(u.lastActiveDay===d)return;u.streak=u.lastActiveDay===yesterday()?u.streak+1:1;u.lastActiveDay=d}
+function renderShop(){
+ const u=user(),box=document.getElementById("shopGrid"),quick=document.getElementById("quickShop");
+ const html=u.shop.map(x=>`<div class="card"><div class="icon">${esc(x.icon)}</div><h3>${esc(x.name)}</h3><div class="desc">${esc(x.description)}</div><div class="cardBottom"><span class="price">${x.price.toLocaleString()} ⭐</span><span><button class="btn" onclick="shopModal('${x.id}')">✏️</button><button class="btn danger" onclick="deleteShop('${x.id}')">×</button><button class="btn primary" onclick="buy('${x.id}')" ${u.points<x.price?"disabled":""}>Buy</button></span></div></div>`).join("");
+ box.innerHTML=html||'<div class="empty">No rewards.</div>';quick.innerHTML=u.shop.slice(0,3).map(x=>`<div class="card" style="margin-bottom:9px"><div class="icon">${esc(x.icon)}</div><h3>${esc(x.name)}</h3><div class="cardBottom"><span class="price">${x.price.toLocaleString()} ⭐</span><button class="btn primary" onclick="buy('${x.id}')" ${u.points<x.price?"disabled":""}>Buy</button></div></div>`).join("");
+}
+function buy(id){
+ const u=user(),x=u.shop.find(a=>a.id===id);if(!x)return;if(u.points<x.price){toast("Not enough points",`${(x.price-u.points).toLocaleString()} more needed.`);return}
+ u.points-=x.price;u.lifetimeSpent+=x.price;u.totalPurchases++;u.purchaseHistory.push({name:x.name,price:x.price,date:new Date().toISOString()});u.activityLog.push({type:"reward",name:x.name,date:new Date().toISOString(),points:-x.price});backup("Bought reward");toast("Reward purchased 🛒",`${x.name} cost ${x.price.toLocaleString()} points.`);render();
+}
+function renderQuests(){
+ const u=user(),box=document.getElementById("questArea"),groups={};
+ u.quests.forEach(q=>(groups[q.category]??=[]).push(q));
+ let out="";
+ for(const [cat,qs] of Object.entries(groups)){
+  out+=`<div class="questCategory"><b>${esc(cat)}</b><span>${qs.length} quests</span></div>`;
+  qs.forEach(q=>{
+   if(q.exerciseGroup){
+    out+=`<div class="card"><div class="questCategory"><b>${q.icon} ${esc(q.name)}</b><span>+1 point each</span></div><div class="desc">${esc(q.description)}</div><div class="exerciseList">${u.exercises.map(e=>`<div class="exercise"><div><b>${esc(e.name)}</b><br><small>+${e.points} ⭐</small></div><button onclick="exercise('${e.id}')">Complete</button></div>`).join("")}</div></div>`;
+   }else{
+    let done=!!u.completedQuests[q.id];
+    out+=`<div class="card" style="margin-bottom:9px"><div class="cardBottom" style="margin-top:0"><div><div><b>${q.icon} ${esc(q.name)}</b></div><div class="desc">${esc(q.description)}</div></div><span class="price">+${q.reward.toLocaleString()} ⭐</span></div><div class="cardBottom"><span class="badge">${done?"✓ Claimed":"Available"}</span><span><button class="btn" onclick="questModal('${q.id}')">✏️</button><button class="btn danger" onclick="deleteQuest('${q.id}')">×</button><button class="btn primary" ${done?"disabled":""} onclick="completeQuest('${q.id}')">${done?"Claimed":"Complete"}</button></span></div></div>`;
+   }
+  });
+ }
+ box.innerHTML=out||'<div class="empty">No side quests.</div>';
+}
+function exercise(id){
+ const u=user(),e=u.exercises.find(x=>x.id===id);if(!e)return;
+ u.points+=e.points;u.lifetimeEarned+=e.points;backup("Completed exercise");toast("Exercise quest complete 💪",`+${e.points} point`);render();
+}
+function completeQuest(id){const u=user(),q=u.quests.find(x=>x.id===id);if(!q||u.completedQuests[id])return;u.completedQuests[id]=true;u.points+=q.reward;u.lifetimeEarned+=q.reward;u.activityLog.push({type:"quest",name:q.name,date:new Date().toISOString(),points:q.reward});backup("Completed side quest");toast("Quest complete ⚔️",`+${q.reward.toLocaleString()} points`);render()}
+function renderUsers(){
+ const box=document.getElementById("userGrid"),list=Object.values(db.accounts);
+ box.innerHTML=list.map(x=>`<div class="card userCard"><div class="avatar">${esc(x.name[0]?.toUpperCase()||"?")}</div><div class="userInfo"><b>${esc(x.name)} ${x.id===activeId?"<span class='badge'>• CURRENT</span>":""}</b><small>${x.points.toLocaleString()} ⭐ · 🔥 ${x.streak} streak</small></div><button class="btn ${x.id===activeId?"green":"primary"}" onclick="switchUser('${x.id}')">${x.id===activeId?"Active":"Switch"}</button></div>`).join("");
+}
+function switchUser(id){activeId=id;db.active=id;toast("Account switched",`Now using ${user().name}.`);render()}
+function dateKey(dt){return new Date(dt.getTime()-dt.getTimezoneOffset()*60000).toISOString().slice(0,10)}
+function startOfWeek(dt){let x=new Date(dt);x.setHours(0,0,0,0);let day=x.getDay();x.setDate(x.getDate()+(day===0?-6:1-day));return x}
+function startOfQuarter(dt){let x=new Date(dt.getFullYear(),Math.floor(dt.getMonth()/3)*3,1);x.setHours(0,0,0,0);return x}
+function completionStats(from,to){
+  const u=user();let scheduled=0,completed=0,start=new Date(from),end=new Date(to);
+  start.setHours(0,0,0,0);end.setHours(23,59,59,999);
+  for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1)){
+    const key=dateKey(d),list=getSchedulesForDate(u,d);
+    scheduled+=list.length;
+    completed+=list.filter(t=>u.completionHistory?.[key]?.[t.id]).length;
+  }
+  return {scheduled,completed,rate:scheduled?Math.round(completed/scheduled*100):0};
+}
 function renderStats(){
-  const now=new Date(),today=new Date(now);today.setHours(0,0,0,0),week=startOfWeek(now),month=new Date(now.getFullYear(),now.getMonth(),1),allStart=new Date(user().createdAt);
-  const a=completionStats(today,today),w=completionStats(week,now),m=completionStats(month,now),all=completionStats(allStart,now);
-  [["stToday",a],["stWeek",w],["stMonth",m],["stAll",all]].forEach(([id,x])=>{document.getElementById(id).textContent=x.rate+"%";document.getElementById(id+"Sub").textContent=`${x.completed} / ${x.scheduled}`});
-  document.getElementById("statsTableBody").innerHTML=[["Today",a],["This Week",w],["This Month",m],["All Time",all]].map(([label,x])=>`<tr><td><b>${label}</b></td><td>${x.scheduled}</td><td>${x.completed}</td><td>${x.rate}%</td></tr>`).join("");
+  const u=user(),now=new Date(),today=new Date(now);today.setHours(0,0,0,0),week=startOfWeek(now),month=new Date(now.getFullYear(),now.getMonth(),1),quarter=startOfQuarter(now),allStart=new Date(u.createdAt);
+  const sets=[["stToday",completionStats(today,today)],["stWeek",completionStats(week,now)],["stMonth",completionStats(month,now)],["stQuarter",completionStats(quarter,now)],["stAll",completionStats(allStart,now)]];
+  sets.forEach(([id,x])=>{document.getElementById(id).textContent=x.rate+"%";document.getElementById(id+"Sub").textContent=`${x.completed} / ${x.scheduled}`});
+  document.getElementById("statsTableBody").innerHTML=[["Today",sets[0][1]],["This Week",sets[1][1]],["This Month",sets[2][1]],["This Quarter",sets[3][1]],["All Time",sets[4][1]]].map(([label,x])=>`<tr><td><b>${label}</b></td><td>${x.scheduled}</td><td>${x.completed}</td><td>${x.rate}%</td></tr>`).join("");
+  document.getElementById("sEarned").textContent=u.lifetimeEarned.toLocaleString();
+  document.getElementById("sSpent").textContent=u.lifetimeSpent.toLocaleString();
+  document.getElementById("sTasks").textContent=u.totalTasks.toLocaleString();
+  document.getElementById("sPurchases").textContent=u.totalPurchases.toLocaleString();
+  document.getElementById("sStreak").textContent=u.streak;
+  let total=u.lifetimeEarned+u.lifetimeSpent,e=total?u.lifetimeEarned/total*100:0;
+  document.getElementById("economyLabel").textContent=u.lifetimeEarned.toLocaleString();
+  document.getElementById("economyBar").style.width=e+"%";
 }
 
 let mode=null,editId=null;
@@ -238,15 +360,15 @@ function modal(title,body,save){document.getElementById("modalTitle").textConten
 function closeModal(){document.getElementById("modalBack").classList.remove("show");mode=null;editId=null}
 function scheduleModal(id=null){
   let x=id?user().schedules.find(a=>a.id===id):null;editId=id;
-  const selected=x?.days||[0,1,2,3,4,5,6], opts=[[1,"Monday"],[2,"Tuesday"],[3,"Wednesday"],[4,"Thursday"],[5,"Friday"],[6,"Saturday"],[0,"Sunday"]];
+  const selected=x?.days||[0,1,2,3,4,5,6],opts=[[1,"Monday"],[2,"Tuesday"],[3,"Wednesday"],[4,"Thursday"],[5,"Friday"],[6,"Saturday"],[0,"Sunday"]];
   modal(id?"Edit Schedule":"New Schedule",`<div class="field"><label>Name</label><input id="f1" value="${attr(x?.name||"")}"></div>
   <div class="field"><label>Time</label><input id="f2" type="time" value="${x?.time||"08:00"}"></div>
-  <div class="field"><label>Points</label><input id="f3" type="number" min="0" value="${x?.reward??20}"></div>
-  <div class="field"><label>Days</label><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:7px">${opts.map(([v,n])=>`<label style="display:flex;gap:7px;align-items:center;background:#080e1a;border:1px solid var(--line);padding:9px;border-radius:8px"><input type="checkbox" class="dayPick" value="${v}" ${selected.includes(v)?"checked":""}>${n}</label>`).join("")}</div></div>`,saveSchedule);
+  <div class="field"><label>Points</label><input id="f3" type="number" min="1" value="${x?.reward||20}"></div>
+  <div class="field"><label>Repeat on</label><div class="dayChecks">${opts.map(([v,n])=>`<label class="dayCheck"><input type="checkbox" class="dayPick" value="${v}" ${selected.includes(v)?"checked":""}>${n}</label>`).join("")}</div></div>`,saveSchedule);
 }
 function saveSchedule(){
   let u=user(),name=f("f1"),time=f("f2"),reward=+f("f3"),days=[...document.querySelectorAll(".dayPick:checked")].map(x=>+x.value);
-  if(!name||!time||reward<0||!days.length)return toast("Invalid schedule","Enter name, time, points and at least one day.");
+  if(!name||!time||reward<1||!days.length)return toast("Invalid schedule","Fill the schedule and select at least one day.");
   if(editId){let x=u.schedules.find(a=>a.id===editId);Object.assign(x,{name,time,reward,days})}
   else u.schedules.push({id:crypto.randomUUID(),name,time,reward,days});
   backup("Changed schedule");closeModal();render();
