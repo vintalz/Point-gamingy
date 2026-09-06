@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QuestOS — Personal Point System</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#0b1020;--panel:#121a2e;--panel2:#18233c;--text:#eef3ff;--muted:#94a3b8;--accent:#7c3aed;--good:#22c55e;--bad:#ef4444;--gold:#f59e0b;--line:#273552}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0,#1c1640 0,#0b1020 42%);color:var(--text);font:15px system-ui,-apple-system,Segoe UI,sans-serif}
+button,input,select,textarea{font:inherit}button{cursor:pointer;border:0}.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}.side{padding:20px;border-right:1px solid var(--line);background:#0d1426;position:sticky;top:0;height:100vh}.brand{font-size:22px;font-weight:800;margin-bottom:25px}.brand span{color:#a78bfa}.nav button{display:block;width:100%;text-align:left;background:transparent;color:var(--muted);padding:12px;border-radius:10px;margin:4px 0}.nav button.active,.nav button:hover{background:var(--panel2);color:white}.main{padding:25px;max-width:1500px;width:100%;margin:auto}.top{display:flex;justify-content:space-between;gap:15px;align-items:center;margin-bottom:20px}.points{background:linear-gradient(135deg,#7c3aed,#4f46e5);padding:12px 18px;border-radius:14px;font-weight:800}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.card{background:rgba(18,26,46,.9);border:1px solid var(--line);border-radius:16px;padding:18px}.stat b{font-size:28px;display:block;margin-top:5px}.muted{color:var(--muted)}.section{margin-top:20px}.section h2{margin:0 0 12px}.tasks{display:grid;gap:10px}.task{display:flex;align-items:center;gap:12px;padding:14px;background:var(--panel);border:1px solid var(--line);border-radius:13px}.task.done{opacity:.55}.task .grow{flex:1}.pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#273552;color:#cbd5e1;font-size:12px}.btn{padding:9px 13px;border-radius:9px;background:#334155;color:white}.btn.primary{background:var(--accent)}.btn.good{background:#15803d}.btn.danger{background:#991b1b}.btn.gold{background:#b45309}.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.input{width:100%;padding:11px;border-radius:9px;border:1px solid var(--line);background:#0e172b;color:white}.formgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.hidden{display:none!important}.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}.day{padding:12px 8px;background:#121a2e;border:1px solid var(--line);border-radius:9px;text-align:center}.day.done{border-color:#16a34a}.chart{height:230px;display:flex;align-items:end;gap:5px}.bar{flex:1;min-width:3px;background:#7c3aed;border-radius:4px 4px 0 0;position:relative}.bar small{position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);color:var(--muted)}.shop{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}.modal{position:fixed;inset:0;background:#0009;display:grid;place-items:center;padding:20px;z-index:5}.modal>div{max-width:650px;width:100%;background:#111a30;border:1px solid var(--line);border-radius:18px;padding:22px}.toast{position:fixed;right:20px;bottom:20px;background:#111827;border:1px solid var(--line);padding:12px 16px;border-radius:10px;z-index:10}@media(max-width:850px){.app{grid-template-columns:1fr}.side{height:auto;position:static}.grid{grid-template-columns:repeat(2,1fr)}.formgrid{grid-template-columns:1fr}}@media(max-width:500px){.grid{grid-template-columns:1fr}.main{padding:14px}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" class="modal hidden"></div>
+<div id="toast" class="toast hidden"></div>
+
+<script>
+/* ===================== CONFIG =====================
+   For real multi-device accounts, create a Supabase project,
+   enable Email Auth, create the SQL schema below this file,
+   and paste your URL + anon key here.
+   Leave blank to use local demo accounts on this device.
+==================================================== */
+const SUPABASE_URL="";
+const SUPABASE_ANON_KEY="";
+const sb=(SUPABASE_URL&&SUPABASE_ANON_KEY)?supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):null;
+
+const KEY="questos_local_v3";
+const state=JSON.parse(localStorage.getItem(KEY)||"null")||{
+ user:null,users:[],tasks:[],quests:[],shop:[],purchases:[],logs:[],backups:[],week:{},
+ settings:{publicProfile:true}
+};
+
+const $=id=>document.getElementById(id);
+const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random();
+const today=()=>new Date().toISOString().slice(0,10);
+const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+function save(){localStorage.setItem(KEY,JSON.stringify(state));}
+function toast(x){$("toast").textContent=x;$("toast").classList.remove("hidden");setTimeout(()=>$("toast").classList.add("hidden"),2200)}
+function points(){return state.user?.points||0}
+function dateObj(s){return new Date(s+"T00:00:00")}
+function fmtDate(s){return dateObj(s).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})}
+function startOfWeek(d=new Date()){let x=new Date(d);let n=x.getDay();x.setDate(x.getDate()-(n===0?6:n-1));x.setHours(0,0,0,0);return x}
+function weekKey(d=new Date()){let x=startOfWeek(d);return x.toISOString().slice(0,10)}
+function addDays(d,n){let x=new Date(d);x.setDate(x.getDate()+n);return x}
+function showModal(html){$("modal").innerHTML="<div>"+html+"</div>";$("modal").classList.remove("hidden")}
+function closeModal(){$("modal").classList.add("hidden")}
+function backup(reason="auto"){
+ const snap={at:new Date().toISOString(),reason,data:JSON.parse(JSON.stringify(state))};
+ state.backups.unshift(snap);state.backups=state.backups.slice(0,30);save();
+}
+function exportBackup(){
+ const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="questos-backup-"+today()+".json";a.click();URL.revokeObjectURL(a.href);
+}
+function importBackup(file){
+ const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);if(!x.users)throw Error();localStorage.setItem(KEY,JSON.stringify(x));location.reload()}catch{toast("Invalid backup file")}};r.readAsText(file)
+}
+
+const templates=[
+ ["Exercise","Push-ups",1],["Exercise","Squats",1],["Exercise","Sit-ups",1],["Exercise","Plank — 1 minute",3],
+ ["Exercise","Run — 1 km",5],["Learning","Read 10 pages",10],["Learning","Finish a book",10000],
+ ["Focus","25-minute deep work",10],["Focus","50-minute deep work",25],["Health","Drink water",1]
+];
+function seed(){
+ if(state.shop.length)return;
+ state.shop=[
+  {id:uid(),name:"Dopamine Scroll",desc:"20 minutes of intentional scrolling",cost:100,icon:"📱"},
+  {id:uid(),name:"Gaming Session",desc:"45 minutes",cost:250,icon:"🎮"},
+  {id:uid(),name:"Movie / Episode",desc:"One guilt-free episode",cost:400,icon:"🎬"},
+  {id:uid(),name:"Big Reward",desc:"Your custom reward",cost:1000,icon:"🏆"}
+ ];
+ save();
+}
+seed();
+
+let view="today";
+function shell(){
+ $("app").innerHTML=`<div class="app">
+ <aside class="side"><div class="brand">Quest<span>OS</span> ⚡</div>
+ <div class="nav">
+ ${["today","week","quests","shop","stats","users","settings"].map(x=>`<button class="${view===x?"active":""}" onclick="setView('${x}')">${({today:"📋 Today",week:"🗓 Weekly Plan",quests:"⚔ Side Quests",shop:"🛒 Point Shop",stats:"📈 Statistics",users:"👥 Users",settings:"⚙ Settings"})[x]}</button>`).join("")}
+ </div>
+ <div class="card" style="margin-top:25px"><span class="muted">Current balance</span><b style="font-size:30px">${points()} pts</b></div>
+ </aside><main class="main"><div class="top"><div><h1 style="margin:0">${viewTitle()}</h1><span class="muted">${state.user?`Signed in as ${esc(state.user.name)}`:"Not signed in"}</span></div>
+ <div class="points">⭐ ${points()} points</div></div>${content()}</main></div>`;
+}
+function viewTitle(){return {today:"Today's Mission",week:"Weekly Schedule",quests:"Side Quest Board",shop:"Point Shop",stats:"Progress & Analytics",users:"Community",settings:"Account & Data"}[view]}
+function setView(x){view=x;shell()}
+
+function todayTasks(){
+ const dow=["sun","mon","tue","wed","thu","fri","sat"][new Date().getDay()];
+ return state.tasks.filter(t=>t.days?.includes(dow));
+}
+function content(){
+ if(!state.user)return loginView();
+ if(view==="today")return todayView();
+ if(view==="week")return weekView();
+ if(view==="quests")return questsView();
+ if(view==="shop")return shopView();
+ if(view==="stats")return statsView();
+ if(view==="users")return usersView();
+ return settingsView();
+}
+function loginView(){return `<div class="card"><h2>Create / Sign in</h2><p class="muted">Local mode stores accounts in this browser. Supabase mode enables real accounts and cross-device data.</p><div class="formgrid">
+ <input id="authName" class="input" placeholder="Display name"><input id="authEmail" class="input" placeholder="Email">
+ <input id="authPass" type="password" class="input" placeholder="Password">
+ </div><div class="row" style="margin-top:12px"><button class="btn primary" onclick="register()">Create account</button><button class="btn" onclick="login()">Sign in</button></div></div>`}
+async function register(){
+ const name=$("authName").value.trim(),email=$("authEmail").value.trim().toLowerCase(),pass=$("authPass").value;
+ if(!name||!email||pass.length<6)return toast("Enter name, email and a 6+ character password");
+ if(sb){let {data,error}=await sb.auth.signUp({email,password:pass,options:{data:{name}}});if(error)return toast(error.message);toast("Account created. Check email if confirmation is enabled.");return}
+ if(state.users.some(u=>u.email===email))return toast("Account already exists");
+ state.users.push({id:uid(),name,email,pass,points:0,created:today(),public:true});
+ state.user=state.users.at(-1);backup("account-created");save();shell();
+}
+async function login(){
+ const email=$("authEmail").value.trim().toLowerCase(),pass=$("authPass").value;
+ if(sb){let {data,error}=await sb.auth.signInWithPassword({email,password:pass});if(error)return toast(error.message);await syncUser();return}
+ const u=state.users.find(x=>x.email===email&&x.pass===pass);if(!u)return toast("Wrong email or password");
+ state.user=u;shell();
+}
+async function syncUser(){
+ const {data:{user}}=await sb.auth.getUser();if(!user)return;
+ let {data:p}=await sb.from("profiles").select("*").eq("id",user.id).single();
+ if(!p){await sb.from("profiles").insert({id:user.id,name:user.user_metadata?.name||user.email.split("@")[0],points:0,public:true});p={id:user.id,name:user.user_metadata?.name||"Player",points:0,public:true}}
+ state.user=p;await pullCloud();shell();
+}
+async function cloudSave(){
+ if(!sb)return save();
+ await sb.from("profiles").upsert({id:state.user.id,name:state.user.name,points:state.user.points,public:state.user.public});
+}
+async function pullCloud(){
+ const id=state.user.id;
+ const [t,q,s,l,p]=await Promise.all([
+  sb.from("tasks").select("*").eq("user_id",id),
+  sb.from("quests").select("*").eq("user_id",id),
+  sb.from("purchases").select("*").eq("user_id",id),
+  sb.from("point_logs").select("*").eq("user_id",id),
+  sb.from("shop_items").select("*").or(`user_id.eq.${id},user_id.is.null`)
+ ]);
+ state.tasks=t.data||[];state.quests=q.data||[];state.purchases=p.data||[];state.logs=l.data||[];state.shop=s.data||state.shop;
+}
+async function mutatePoints(delta,type,label,ref){
+ state.user.points=Math.max(0,(state.user.points||0)+delta);
+ state.logs.push({id:uid(),user_id:state.user.id,date:today(),delta,type,label,ref});
+ backup(type);
+ if(sb){await cloudSave();await sb.from("point_logs").insert({user_id:state.user.id,date:today(),delta,type,label,ref});}
+ save();shell();
+}
+function doneTask(id){
+ const t=state.tasks.find(x=>x.id===id),d=today();
+ if(!t||t.completed?.includes(d))return;
+ t.completed=[...(t.completed||[]),d];mutatePoints(20,"schedule",t.name,t.id);
+}
+function undoTask(id){
+ const t=state.tasks.find(x=>x.id===id),d=today();t.completed=(t.completed||[]).filter(x=>x!==d);mutatePoints(-20,"undo","Undo: "+t.name,t.id)
+}
+function todayView(){
+ const ts=todayTasks(),done=ts.filter(t=>t.completed?.includes(today())).length;
+ return `<div class="grid"><div class="card stat"><span class="muted">Today</span><b>${done}/${ts.length}</b></div><div class="card stat"><span class="muted">Earnable</span><b>${ts.length*20} pts</b></div><div class="card stat"><span class="muted">Completion</span><b>${ts.length?Math.round(done/ts.length*100):0}%</b></div><div class="card stat"><span class="muted">Balance</span><b>${points()}</b></div></div>
+ <div class="section"><div class="row" style="justify-content:space-between"><h2>Scheduled tasks</h2><button class="btn primary" onclick="taskModal()">+ Add schedule</button></div>
+ <div class="tasks">${ts.length?ts.map(t=>taskHTML(t)).join(""):`<div class="card"><b>No tasks for today.</b><p class="muted">Build your weekly plan in the Weekly Schedule tab.</p></div>`}</div></div>`;
+}
+function taskHTML(t){let d=t.completed?.includes(today());return `<div class="task ${d?"done":""}"><div class="grow"><b>${esc(t.name)}</b><div class="muted">${esc(t.time||"Flexible")} · ${esc(t.category||"General")} · +20 pts</div></div>${d?`<button class="btn" onclick="undoTask('${t.id}')">Undo</button>`:`<button class="btn good" onclick="doneTask('${t.id}')">✓ Done +20</button>`}</div>`}
+function taskModal(edit=null){
+ const t=edit?state.tasks.find(x=>x.id===edit):null;
+ const days=["mon","tue","wed","thu","fri","sat","sun"];
+ showModal(`<h2>${t?"Edit":"Add"} scheduled task</h2><div class="formgrid">
+ <input id="tn" class="input" placeholder="Task name" value="${esc(t?.name||"")}"><input id="tt" class="input" type="time" value="${t?.time||""}">
+ <input id="tc" class="input" placeholder="Category e.g. Study, Exercise" value="${esc(t?.category||"")}">
+ </div><p class="muted">Choose the days this schedule repeats.</p><div class="row">${days.map(d=>`<label><input type="checkbox" class="daybox" value="${d}" ${t?.days?.includes(d)?"checked":""}> ${d.toUpperCase()}</label>`).join("")}</div>
+ <div class="row" style="margin-top:18px"><button class="btn primary" onclick="saveTask('${t?.id||""}')">Save</button><button class="btn" onclick="closeModal()">Cancel</button></div>`);
+}
+async function saveTask(id){
+ const name=$("tn").value.trim(),time=$("tt").value,category=$("tc").value.trim()||"General",days=[...document.querySelectorAll(".daybox:checked")].map(x=>x.value);
+ if(!name||!days.length)return toast("Name and at least one day are required");
+ if(id){let t=state.tasks.find(x=>x.id===id);Object.assign(t,{name,time,category,days});}
+ else state.tasks.push({id:uid(),name,time,category,days,completed:[]});
+ closeModal();backup("schedule-edit");save();if(sb)await sb.from("tasks").upsert({...state.tasks.at(-1),user_id:state.user.id});shell();
+}
+function weekView(){
+ const days=[["mon","Monday"],["tue","Tuesday"],["wed","Wednesday"],["thu","Thursday"],["fri","Friday"],["sat","Saturday"],["sun","Sunday"]];
+ return `<div class="card"><div class="row"><b>Weekly recurrence system</b><span class="muted">One task can repeat on any combination of days.</span><button class="btn primary" style="margin-left:auto" onclick="taskModal()">+ Schedule</button></div></div>
+ <div class="section">${days.map(([k,n])=>`<div class="card" style="margin-bottom:10px"><h3>${n}</h3>${state.tasks.filter(t=>t.days?.includes(k)).map(t=>`<div class="task"><div class="grow"><b>${esc(t.name)}</b><div class="muted">${t.time||"Flexible"} · ${t.category||"General"}</div></div><button class="btn" onclick="taskModal('${t.id}')">Edit</button></div>`).join("")||`<span class="muted">Nothing scheduled.</span>`}</div>`).join("")}</div>`;
+}
+function questsView(){
+ const cats=[...new Set(state.quests.map(q=>q.category||"Other"))];
+ const defaults=templates.filter(([c])=>!state.quests.some(q=>q.name===c));
+ return `<div class="row"><div class="card" style="flex:1"><b>Side quests are separate from your routine.</b><div class="muted">Use them for bonus effort: exercise, learning, focus, health and custom challenges.</div></div><button class="btn primary" onclick="questModal()">+ Create quest</button></div>
+ ${cats.map(c=>`<div class="section"><h2>${esc(c)}</h2><div class="tasks">${state.quests.filter(q=>(q.category||"Other")===c).map(q=>`<div class="task"><div class="grow"><b>${esc(q.name)}</b><div class="muted">${esc(q.desc||"")} · +${q.reward} pts</div></div><button class="btn good" onclick="completeQuest('${q.id}')">Complete</button></div>`).join("")}</div></div>`).join("")}
+ <div class="section"><h2>Quick templates</h2><div class="row">${templates.map(x=>`<button class="btn" onclick="quickQuest('${esc(x[0])}','${esc(x[1])}',${x[2]})">+ ${esc(x[1])} (${x[2]})</button>`).join("")}</div></div>`;
+}
+function quickQuest(cat,name,reward){if(state.quests.some(q=>q.name===name))return toast("Already added");state.quests.push({id:uid(),name,category:cat,reward,desc:"Template quest"});save();shell()}
+function questModal(){
+ showModal(`<h2>Create side quest</h2><div class="formgrid"><input id="qn" class="input" placeholder="Quest name"><input id="qr" class="input" type="number" min="1" placeholder="Reward points"><input id="qc" class="input" placeholder="Category"><input id="qd" class="input" placeholder="Description"></div><div class="row" style="margin-top:15px"><button class="btn primary" onclick="createQuest()">Create</button><button class="btn" onclick="closeModal()">Cancel</button></div>`);
+}
+function createQuest(){let name=$("qn").value.trim(),reward=+$("qr").value,category=$("qc").value.trim()||"Other",desc=$("qd").value.trim();if(!name||reward<1)return toast("Enter a name and positive reward");state.quests.push({id:uid(),name,reward,category,desc});backup("quest-created");save();closeModal();shell()}
+function completeQuest(id){let q=state.quests.find(x=>x.id===id);if(confirm(`Complete "${q.name}" for ${q.reward} points?`))mutatePoints(q.reward,"quest",q.name,q.id)}
+function shopView(){return `<div class="card"><b>Spend points intentionally.</b><div class="muted">Rewards cost points; purchases are recorded so your statistics show where your earned points went.</div></div><div class="section shop">${state.shop.map(x=>`<div class="card"><div style="font-size:35px">${x.icon||"🎁"}</div><h3>${esc(x.name)}</h3><p class="muted">${esc(x.desc||"")}</p><button class="btn gold" onclick="buy('${x.id}')">Buy for ${x.cost} pts</button></div>`).join("")}</div><div class="section"><h2>Purchase history</h2><div class="tasks">${state.purchases.slice(0,10).map(p=>`<div class="task"><div class="grow">${esc(p.name)}</div><span class="pill">-${p.cost} pts</span></div>`).join("")||`<div class="muted">No purchases yet.</div>`}</div></div>`}
+function buy(id){let x=state.shop.find(a=>a.id===id);if(points()<x.cost)return toast("Not enough points");if(!confirm(`Spend ${x.cost} points on ${x.name}?`))return;state.purchases.unshift({id:uid(),name:x.name,cost:x.cost,date:today()});mutatePoints(-x.cost,"purchase",x.name,x.id)}
+function statsView(){
+ const logs=state.logs.filter(l=>l.user_id===state.user?.id||!l.user_id);
+ const earned=logs.filter(l=>l.delta>0).reduce((a,l)=>a+l.delta,0),spent=-logs.filter(l=>l.delta<0).reduce((a,l)=>a+l.delta,0);
+ const days=[...Array(14)].map((_,i)=>{let d=addDays(new Date(),i-13).toISOString().slice(0,10);return {d,n:logs.filter(l=>l.date===d).reduce((a,l)=>a+l.delta,0)}})
+ return `<div class="grid"><div class="card stat"><span class="muted">Lifetime earned</span><b>${earned}</b></div><div class="card stat"><span class="muted">Lifetime spent</span><b>${spent}</b></div><div class="card stat"><span class="muted">Net</span><b>${earned-spent}</b></div><div class="card stat"><span class="muted">Quest actions</span><b>${logs.length}</b></div></div>
+ <div class="section card"><h2>Last 14 days</h2><div class="chart">${days.map(x=>`<div class="bar" style="height:${Math.max(4,Math.min(100,Math.abs(x.n)))}%" title="${x.d}: ${x.n}"><small>${x.d.slice(5)}</small></div>`).join("")}</div></div>
+ <div class="section card"><h2>Improvement</h2><p class="muted">Your meaningful metric is consistency, not raw points. Compare completion rate week-over-week.</p>${improvement()}</div>`;
+}
+function improvement(){
+ const now=state.logs.filter(l=>l.date>=addDays(new Date(),-6).toISOString().slice(0,10)&&l.delta>0).reduce((a,l)=>a+l.delta,0);
+ const prev=state.logs.filter(l=>{let d=new Date(l.date);let lo=addDays(new Date(),-13),hi=addDays(new Date(),-7);return d>=lo&&d<=hi&&l.delta>0}).reduce((a,l)=>a+l.delta,0);
+ let pct=prev?Math.round((now-prev)/prev*100):0;return `<b>${pct>=0?"+":""}${pct}% points earned vs previous 7-day period.</b><p class="muted">${now} pts this week vs ${prev} pts in the previous comparable period.</p>`;
+}
+function usersView(){
+ const users=state.users.filter(u=>u.public!==false);
+ if(sb)return `<div class="card"><h2>Community</h2><p class="muted">Supabase mode can show public profiles from all accounts. Add the profiles query here after deploying.</p></div>`;
+ return `<div class="card"><h2>Local community</h2><p class="muted">Local mode cannot share users between devices. These accounts exist only in this browser.</p></div><div class="section tasks">${users.map(u=>`<div class="task"><div class="grow"><b>${esc(u.name)}</b><div class="muted">Joined ${u.created||"—"}</div></div><span class="pill">${u.points||0} pts</span></div>`).join("")}</div>`;
+}
+function settingsView(){return `<div class="grid"><div class="card"><h3>Account</h3><b>${esc(state.user.name)}</b><p class="muted">${esc(state.user.email||"")}</p><button class="btn" onclick="logout()">Sign out</button></div>
+<div class="card"><h3>Privacy</h3><label><input type="checkbox" ${state.user.public!==false?"checked":""} onchange="togglePublic(this.checked)"> Public profile / leaderboard</label></div>
+<div class="card"><h3>Automatic backups</h3><p class="muted">${state.backups.length} local snapshots retained.</p><button class="btn" onclick="backup('manual');toast('Snapshot created')">Create snapshot</button></div>
+<div class="card"><h3>Data portability</h3><button class="btn" onclick="exportBackup()">Export JSON</button><label class="btn">Import JSON<input hidden type="file" accept=".json" onchange="importBackup(this.files[0])"></label></div></div>
+<div class="section card"><h2>Backup history</h2>${state.backups.slice(0,12).map(b=>`<div class="task"><div class="grow">${b.reason}</div><span class="muted">${new Date(b.at).toLocaleString()}</span></div>`).join("")}</div>`}
+function togglePublic(x){state.user.public=x;save();cloudSave();toast("Privacy setting updated")}
+async function logout(){if(sb)await sb.auth.signOut();state.user=null;save();shell()}
+if(sb){sb.auth.getSession().then(({data})=>{if(data.session)syncUser();else shell()})}else shell();
+</script>
+</body>
+</html>
