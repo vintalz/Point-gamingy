@@ -19,13 +19,13 @@
 .shopGrid,.questGrid,.userGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.card{background:#111c30aa;border:1px solid var(--line);border-radius:14px;padding:15px}.icon{font-size:27px}.card h3{margin:7px 0 4px}.desc{font-size:12px;color:var(--muted);line-height:1.5;min-height:34px}.cardBottom{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px}.price{color:var(--gold);font-weight:900}
 .questCategory{display:flex;align-items:center;justify-content:space-between;margin:20px 0 10px}.questCategory:first-child{margin-top:0}.questCategory b{font-size:15px}.questCategory span{font-size:11px;color:var(--muted)}.exerciseList{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.exercise{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line);background:#0c1423;border-radius:10px;padding:10px 11px}.exercise small{color:var(--muted)}.exercise button{border:0;background:#35e39a16;color:var(--green);border-radius:8px;padding:6px 9px;font-weight:800}.exercise button:disabled{opacity:.4}
 .section{display:none}.section.active{display:block}.empty{padding:25px;text-align:center;color:var(--muted)}
-.modalBack{position:fixed;inset:0;background:#000b;backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:50;padding:18px}.modalBack.show{display:flex}.modal{width:min(520px,100%);background:#0d1525;border:1px solid var(--line);border-radius:18px;padding:20px}.modal h2{margin-top:0}.form{display:grid;gap:12px}.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}.field input,.field select{width:100%;background:#080e1a;color:white;border:1px solid var(--line);padding:11px;border-radius:9px}.actions{display:flex;justify-content:flex-end;gap:8px;margin-top:17px}
+.modalBack{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:50;padding:18px}.modalBack.show{display:flex}.modal{width:min(520px,100%);background:#0d1525;border:1px solid var(--line);border-radius:18px;padding:20px}.modal h2{margin-top:0}.form{display:grid;gap:12px}.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}.field input,.field select{width:100%;background:#080e1a;color:white;border:1px solid var(--line);padding:11px;border-radius:9px}.actions{display:flex;justify-content:flex-end;gap:8px;margin-top:17px}
 .toastBox{position:fixed;right:18px;bottom:18px;display:grid;gap:8px;z-index:100}.toast{background:#111c30;border:1px solid var(--line);border-radius:12px;padding:13px 15px;min-width:240px;box-shadow:0 20px 50px #0008}.toast b{display:block}.toast small{color:var(--muted)}
 .userCard{display:flex;gap:12px;align-items:center}.avatar{width:45px;height:45px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,var(--purple),var(--cyan));font-weight:900}.userCard .userInfo{flex:1}.userInfo b{display:block}.userInfo small{color:var(--muted)}.badge{font-size:11px;color:var(--gold)}
 .notice{padding:13px;border:1px solid #765cff44;background:#765cff0d;border-radius:12px;color:var(--muted);font-size:12px;line-height:1.5;margin-bottom:14px}
 .mobile{display:none}
 @media(max-width:1050px){.stats{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}}
-@media(max-width:760px){.sidebar{display:none}.main{margin:0;width:100%;padding:17px}.mobile{display:flex;margin-bottom:18px}.top{flex-direction:column}.date{text-align:left}.shopGrid,.questGrid,.userGrid,.exerciseList{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){.modalBack{backdrop-filter:none}.sidebar{display:none}.main{margin:0;width:100%;padding:17px}.mobile{display:flex;margin-bottom:18px}.top{flex-direction:column}.date{text-align:left}.shopGrid,.questGrid,.userGrid,.exerciseList{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}}
 
 .tableWrap{width:100%;overflow-x:auto}
 .weekTable,.statsTable,.historyTable{width:100%;border-collapse:separate;border-spacing:0;min-width:1050px}
@@ -223,14 +223,63 @@
 <div class="toastBox" id="toastBox"></div>
 
 <script>
+/* LifeQuest V2 — performance-optimized state/render system */
 const KEY="lifequest_accounts_v3";
-let db=JSON.parse(localStorage.getItem(KEY)||"null");
-if(!db){
+let saveTimer=null;
+let renderFrame=null;
+let scheduleFilter="all";
+let mode=null,editId=null;
+
+let db;
+try{
+  db=JSON.parse(localStorage.getItem(KEY)||"null");
+}catch{
+  db=null;
+}
+
+if(!db || !db.accounts){
   const id=crypto.randomUUID();
   db={active:id,accounts:{[id]:newAccount("Quest Master")}};
   persist();
 }
-let activeId=db.active; Object.values(db.accounts).forEach(migrateSchedules);
+
+let activeId=db.active||Object.keys(db.accounts)[0];
+if(!db.accounts[activeId]){
+  activeId=Object.keys(db.accounts)[0];
+  db.active=activeId;
+}
+Object.values(db.accounts).forEach(migrateSchedules);
+
+/* ---------- Storage ---------- */
+
+function persist(){
+  try{
+    localStorage.setItem(KEY,JSON.stringify(db));
+  }catch(err){
+    console.error("LifeQuest save failed:",err);
+    toast("Save failed","Browser storage is full or unavailable.");
+  }
+}
+
+/* Debounced storage write: multiple quick changes become one write. */
+function saveSoon(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{
+    persist();
+    saveTimer=null;
+  },300);
+}
+
+/* Immediate save for leaving/closing the page. */
+function flushSave(){
+  if(saveTimer!==null){
+    clearTimeout(saveTimer);
+    saveTimer=null;
+  }
+  persist();
+}
+
+/* ---------- Data ---------- */
 
 function newAccount(name){
  return {
@@ -266,18 +315,113 @@ function newAccount(name){
   ]
  };
 }
-function persist(){localStorage.setItem(KEY,JSON.stringify(db))}
+
 function user(){return db.accounts[activeId]}
-function day(){let d=new Date();return d.toISOString().slice(0,10)}
-function yesterday(){let d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10)}
-function nav(id,btn){document.querySelectorAll(".section").forEach(x=>x.classList.remove("active"));document.getElementById(id).classList.add("active");document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("active"));if(btn)btn.classList.add("active");render()}
+
+function migrateSchedules(u){
+  if(!Array.isArray(u.schedules))u.schedules=[];
+  u.schedules.forEach(t=>{
+    if(!Array.isArray(t.days))t.days=[0,1,2,3,4,5,6];
+  });
+  if(!u.completionHistory)u.completionHistory={};
+  if(!u.completedToday)u.completedToday={};
+  if(!u.activityLog)u.activityLog=[];
+  if(!u.completedQuests)u.completedQuests={};
+  if(!u.purchaseHistory)u.purchaseHistory=[];
+  if(!u.backups)u.backups=[];
+  if(!Array.isArray(u.shop))u.shop=[];
+  if(!Array.isArray(u.quests))u.quests=[];
+  if(!Array.isArray(u.exercises))u.exercises=[];
+}
+
+/* ---------- Dates ---------- */
+
+function day(){
+  return dateKey(new Date());
+}
+
+function yesterday(){
+  const d=new Date();
+  d.setDate(d.getDate()-1);
+  return dateKey(d);
+}
+
+function dateKey(dt){
+  const d=new Date(dt);
+  d.setHours(0,0,0,0);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
+/* ---------- Navigation / Rendering ---------- */
+
+/*
+  V1 rebuilt every section and saved the entire database on every render.
+  V2 updates shared dashboard values and renders only the visible section.
+*/
+function nav(id,btn){
+  document.querySelectorAll(".section").forEach(x=>x.classList.remove("active"));
+  const section=document.getElementById(id);
+  if(section)section.classList.add("active");
+
+  document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("active"));
+  if(btn)btn.classList.add("active");
+
+  requestRender();
+}
+
+function requestRender(){
+  if(renderFrame!==null)return;
+  renderFrame=requestAnimationFrame(()=>{
+    renderFrame=null;
+    render();
+  });
+}
+
 function render(){
   const u=user(),d=day();
-  if(!u.completedToday[d])u.completedToday[d]={};
-  if(!u.completionHistory)u.completionHistory={};
-  if(!u.activityLog)u.activityLog=[];
+  if(!u)return;
   migrateSchedules(u);
-  document.getElementById("date").textContent=new Date().toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+
+  if(!u.completedToday[d])u.completedToday[d]={};
+
+  updateDashboard();
+  updateBackupCount();
+
+  const active=document.querySelector(".section.active")?.id||"dashboard";
+
+  switch(active){
+    case "dashboard":
+      renderTasks("dashTasks",false);
+      renderQuickShop();
+      break;
+    case "schedule":
+      renderWeekTable();
+      break;
+    case "shop":
+      renderShop();
+      break;
+    case "quests":
+      renderQuests();
+      break;
+    case "users":
+      renderUsers();
+      break;
+    case "stats":
+      renderStats();
+      break;
+    case "settings":
+      break;
+  }
+}
+
+function updateDashboard(){
+  const u=user(),d=day();
+
+  document.getElementById("date").textContent=
+    new Date().toLocaleDateString(undefined,{
+      weekday:"long",year:"numeric",month:"long",day:"numeric"
+    });
+
   document.getElementById("points").textContent=u.points.toLocaleString();
   document.getElementById("earned").textContent=u.lifetimeEarned.toLocaleString();
   document.getElementById("streak").textContent=u.streak;
@@ -285,174 +429,686 @@ function render(){
   document.getElementById("miniPoints").textContent=u.points.toLocaleString()+" ⭐";
   document.getElementById("shopBalance").textContent=u.points.toLocaleString();
 
-  const todaySchedules=getSchedulesForDate(u,new Date()),done=Object.keys(u.completedToday[d]).length,total=todaySchedules.length,p=total?Math.round(done/total*100):0;
+  const todaySchedules=getSchedulesForDate(u,new Date());
+  const done=Object.keys(u.completedToday[d]||{}).length;
+  const total=todaySchedules.length;
+  const p=total?Math.round(done/total*100):0;
+
   document.getElementById("percent").textContent=p+"%";
   document.getElementById("taskCount").textContent=`${done} / ${total} missions`;
   document.getElementById("progressText").textContent=`${done} / ${total}`;
   document.getElementById("dailyBar").style.width=p+"%";
 
   const joined=new Date(u.createdAt);
-  const joinedText=joined.toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short"});
-  document.getElementById("sJoined").textContent=joinedText;
-
-  renderTasks("dashTasks",false);
-  renderWeekTable();
-  renderShop();renderQuests();renderUsers();renderStats();
-  document.getElementById("backupCount").textContent=u.backups.length+" backups";
-  persist();
+  document.getElementById("sJoined").textContent=
+    joined.toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short"});
 }
 
-function migrateSchedules(u){
-  (u.schedules||[]).forEach(t=>{if(!Array.isArray(t.days))t.days=[0,1,2,3,4,5,6]});
-  if(!u.completionHistory)u.completionHistory={};
-  if(!u.activityLog)u.activityLog=[];
+function updateBackupCount(){
+  const el=document.getElementById("backupCount");
+  if(el)el.textContent=user().backups.length+" backups";
 }
+
 function getSchedulesForDate(u,date){
   const dow=date.getDay();
-  return [...u.schedules].filter(t=>(t.days||[0,1,2,3,4,5,6]).includes(dow)).sort((a,b)=>a.time.localeCompare(b.time));
+  return u.schedules
+    .filter(t=>(t.days||[0,1,2,3,4,5,6]).includes(dow))
+    .sort((a,b)=>a.time.localeCompare(b.time));
 }
+
 function renderTasks(id,actions){
-  const box=document.getElementById(id),u=user(),d=day(),arr=getSchedulesForDate(u,new Date());
-  if(!arr.length){box.innerHTML='<div class="empty">No schedules for today.</div>';return}
-  box.innerHTML=arr.map(t=>{let done=!!u.completedToday[d][t.id];return `<div class="task ${done?"done":""}">
-    <button class="check" ${done?"disabled":""} onclick="completeSchedule('${t.id}')">${done?"✓":""}</button>
-    <div class="taskInfo"><div class="taskName">${esc(t.name)}</div><div class="taskTime">⏰ ${esc(t.time)}</div></div>
-    <div class="reward">+${t.reward} ⭐</div>${actions?`<button class="btn" onclick="scheduleModal('${t.id}')">✏️</button><button class="btn danger" onclick="deleteSchedule('${t.id}')">×</button>`:""}
-  </div>`}).join("");
+  const box=document.getElementById(id);
+  if(!box)return;
+
+  const u=user(),d=day(),arr=getSchedulesForDate(u,new Date());
+
+  if(!arr.length){
+    box.innerHTML='<div class="empty">No schedules for today.</div>';
+    return;
+  }
+
+  box.innerHTML=arr.map(t=>{
+    const done=!!u.completedToday[d][t.id];
+    return `<div class="task ${done?"done":""}">
+      <button class="check" ${done?"disabled":""} onclick="completeSchedule('${t.id}')">${done?"✓":""}</button>
+      <div class="taskInfo"><div class="taskName">${esc(t.name)}</div><div class="taskTime">⏰ ${esc(t.time)}</div></div>
+      <div class="reward">+${t.reward} ⭐</div>
+      ${actions?`<button class="btn" onclick="scheduleModal('${t.id}')">✏️</button><button class="btn danger" onclick="deleteSchedule('${t.id}')">×</button>`:""}
+    </div>`;
+  }).join("");
 }
-let scheduleFilter="all";
-function setScheduleFilter(f){scheduleFilter=f;renderWeekTable()}
+
+/* ---------- Schedule ---------- */
+
+function setScheduleFilter(f){
+  scheduleFilter=f;
+  renderWeekTable();
+}
+
 function renderWeekTable(){
-  const u=user(),body=document.getElementById("weekTableBody"),days=[1,2,3,4,5,6,0];
+  const u=user(),body=document.getElementById("weekTableBody");
+  if(!body)return;
+
+  const days=[1,2,3,4,5,6,0];
   let schedules=[...u.schedules];
-  if(scheduleFilter==="weekday")schedules=schedules.filter(t=>(t.days||[]).some(d=>[1,2,3,4,5].includes(d)));
-  if(scheduleFilter==="weekend")schedules=schedules.filter(t=>(t.days||[]).some(d=>[0,6].includes(d)));
+
+  if(scheduleFilter==="weekday")
+    schedules=schedules.filter(t=>(t.days||[]).some(d=>[1,2,3,4,5].includes(d)));
+  if(scheduleFilter==="weekend")
+    schedules=schedules.filter(t=>(t.days||[]).some(d=>[0,6].includes(d)));
+
   const times=[...new Set(schedules.map(x=>x.time))].sort();
-  if(!times.length){body.innerHTML='<tr><td colspan="8" class="empty">No schedules match this filter.</td></tr>';return}
+
+  if(!times.length){
+    body.innerHTML='<tr><td colspan="8" class="empty">No schedules match this filter.</td></tr>';
+    return;
+  }
+
   body.innerHTML=times.map(time=>{
     const cells=days.map(dow=>{
-      const items=schedules.filter(t=>t.time===time&&(t.days||[0,1,2,3,4,5,6]).includes(dow));
+      const items=schedules.filter(t=>
+        t.time===time &&
+        (t.days||[0,1,2,3,4,5,6]).includes(dow)
+      );
+
       if(!items.length)return '<td><div class="emptyCell">—</div></td>';
-      return '<td>'+items.map(t=>`<div class="weekCell"><b>${esc(t.name)}</b><small>+${t.reward} ⭐</small><div class="miniActions"><button class="btn" onclick="scheduleModal('${t.id}')">Edit</button><button class="btn danger" onclick="deleteSchedule('${t.id}')">×</button></div></div>`).join('')+'</td>';
+
+      return '<td>'+items.map(t=>`<div class="weekCell">
+        <b>${esc(t.name)}</b>
+        <small>+${t.reward} ⭐</small>
+        <div class="miniActions">
+          <button class="btn" onclick="scheduleModal('${t.id}')">Edit</button>
+          <button class="btn danger" onclick="deleteSchedule('${t.id}')">×</button>
+        </div>
+      </div>`).join('')+'</td>';
     }).join('');
+
     return `<tr><th>${esc(time)}</th>${cells}</tr>`;
   }).join('');
 }
 
 function completeSchedule(id){
- const u=user(),d=day();if(u.completedToday[d][id])return;let t=u.schedules.find(x=>x.id===id);if(!t)return;
- u.completedToday[d][id]=true;u.completionHistory[d]=(u.completionHistory[d]||{});u.completionHistory[d][id]=true;u.points+=t.reward;u.lifetimeEarned+=t.reward;u.totalTasks++;u.activityLog.push({type:"schedule",name:t.name,date:new Date().toISOString(),points:t.reward});
- updateStreak();backup("Completed schedule");toast("Mission complete 🎉",`+${t.reward} points`);
- render();
-}
-function updateStreak(){let u=user(),d=day();if(u.lastActiveDay===d)return;u.streak=u.lastActiveDay===yesterday()?u.streak+1:1;u.lastActiveDay=d}
-function renderShop(){
- const u=user(),box=document.getElementById("shopGrid"),quick=document.getElementById("quickShop");
- const html=u.shop.map(x=>`<div class="card"><div class="icon">${esc(x.icon)}</div><h3>${esc(x.name)}</h3><div class="desc">${esc(x.description)}</div><div class="cardBottom"><span class="price">${x.price.toLocaleString()} ⭐</span><span><button class="btn" onclick="shopModal('${x.id}')">✏️</button><button class="btn danger" onclick="deleteShop('${x.id}')">×</button><button class="btn primary" onclick="buy('${x.id}')" ${u.points<x.price?"disabled":""}>Buy</button></span></div></div>`).join("");
- box.innerHTML=html||'<div class="empty">No rewards.</div>';quick.innerHTML=u.shop.slice(0,3).map(x=>`<div class="card" style="margin-bottom:9px"><div class="icon">${esc(x.icon)}</div><h3>${esc(x.name)}</h3><div class="cardBottom"><span class="price">${x.price.toLocaleString()} ⭐</span><button class="btn primary" onclick="buy('${x.id}')" ${u.points<x.price?"disabled":""}>Buy</button></div></div>`).join("");
-}
-function buy(id){
- const u=user(),x=u.shop.find(a=>a.id===id);if(!x)return;if(u.points<x.price){toast("Not enough points",`${(x.price-u.points).toLocaleString()} more needed.`);return}
- u.points-=x.price;u.lifetimeSpent+=x.price;u.totalPurchases++;u.purchaseHistory.push({name:x.name,price:x.price,date:new Date().toISOString()});u.activityLog.push({type:"reward",name:x.name,date:new Date().toISOString(),points:-x.price});backup("Bought reward");toast("Reward purchased 🛒",`${x.name} cost ${x.price.toLocaleString()} points.`);render();
-}
-function renderQuests(){
- const u=user(),box=document.getElementById("questArea"),groups={};
- u.quests.forEach(q=>(groups[q.category]??=[]).push(q));
- let out="";
- for(const [cat,qs] of Object.entries(groups)){
-  out+=`<div class="questCategory"><b>${esc(cat)}</b><span>${qs.length} quests</span></div>`;
-  qs.forEach(q=>{
-   if(q.exerciseGroup){
-    out+=`<div class="card"><div class="questCategory"><b>${q.icon} ${esc(q.name)}</b><span>+1 point each</span></div><div class="desc">${esc(q.description)}</div><div class="exerciseList">${u.exercises.map(e=>`<div class="exercise"><div><b>${esc(e.name)}</b><br><small>+${e.points} ⭐</small></div><button onclick="exercise('${e.id}')">Complete</button></div>`).join("")}</div></div>`;
-   }else{
-    let done=!!u.completedQuests[q.id];
-    out+=`<div class="card" style="margin-bottom:9px"><div class="cardBottom" style="margin-top:0"><div><div><b>${q.icon} ${esc(q.name)}</b></div><div class="desc">${esc(q.description)}</div></div><span class="price">+${q.reward.toLocaleString()} ⭐</span></div><div class="cardBottom"><span class="badge">${done?"✓ Claimed":"Available"}</span><span><button class="btn" onclick="questModal('${q.id}')">✏️</button><button class="btn danger" onclick="deleteQuest('${q.id}')">×</button><button class="btn primary" ${done?"disabled":""} onclick="completeQuest('${q.id}')">${done?"Claimed":"Complete"}</button></span></div></div>`;
-   }
+  const u=user(),d=day();
+  if(u.completedToday[d][id])return;
+
+  const t=u.schedules.find(x=>x.id===id);
+  if(!t)return;
+
+  u.completedToday[d][id]=true;
+  u.completionHistory[d]??={};
+  u.completionHistory[d][id]=true;
+  u.points+=t.reward;
+  u.lifetimeEarned+=t.reward;
+  u.totalTasks++;
+  u.activityLog.push({
+    type:"schedule",name:t.name,date:new Date().toISOString(),points:t.reward
   });
- }
- box.innerHTML=out||'<div class="empty">No side quests.</div>';
+
+  updateStreak();
+  saveSoon();
+  toast("Mission complete 🎉",`+${t.reward} points`);
+  requestRender();
 }
-function exercise(id){
- const u=user(),e=u.exercises.find(x=>x.id===id);if(!e)return;
- u.points+=e.points;u.lifetimeEarned+=e.points;backup("Completed exercise");toast("Exercise quest complete 💪",`+${e.points} point`);render();
+
+function updateStreak(){
+  const u=user(),d=day();
+  if(u.lastActiveDay===d)return;
+  u.streak=u.lastActiveDay===yesterday()?u.streak+1:1;
+  u.lastActiveDay=d;
 }
-function completeQuest(id){const u=user(),q=u.quests.find(x=>x.id===id);if(!q||u.completedQuests[id])return;u.completedQuests[id]=true;u.points+=q.reward;u.lifetimeEarned+=q.reward;u.activityLog.push({type:"quest",name:q.name,date:new Date().toISOString(),points:q.reward});backup("Completed side quest");toast("Quest complete ⚔️",`+${q.reward.toLocaleString()} points`);render()}
-function renderUsers(){
- const box=document.getElementById("userGrid"),list=Object.values(db.accounts);
- box.innerHTML=list.map(x=>`<div class="card userCard"><div class="avatar">${esc(x.name[0]?.toUpperCase()||"?")}</div><div class="userInfo"><b>${esc(x.name)} ${x.id===activeId?"<span class='badge'>• CURRENT</span>":""}</b><small>${x.points.toLocaleString()} ⭐ · 🔥 ${x.streak} streak</small></div><button class="btn ${x.id===activeId?"green":"primary"}" onclick="switchUser('${x.id}')">${x.id===activeId?"Active":"Switch"}</button></div>`).join("");
+
+/* ---------- Shop ---------- */
+
+function renderShop(){
+  const u=user(),box=document.getElementById("shopGrid");
+  if(!box)return;
+
+  const html=u.shop.map(x=>`<div class="card">
+    <div class="icon">${esc(x.icon)}</div>
+    <h3>${esc(x.name)}</h3>
+    <div class="desc">${esc(x.description)}</div>
+    <div class="cardBottom">
+      <span class="price">${x.price.toLocaleString()} ⭐</span>
+      <span>
+        <button class="btn" onclick="shopModal('${x.id}')">✏️</button>
+        <button class="btn danger" onclick="deleteShop('${x.id}')">×</button>
+        <button class="btn primary" onclick="buy('${x.id}')" ${u.points<x.price?"disabled":""}>Buy</button>
+      </span>
+    </div>
+  </div>`).join("");
+
+  box.innerHTML=html||'<div class="empty">No rewards.</div>';
+  renderQuickShop();
 }
-function switchUser(id){activeId=id;db.active=id;toast("Account switched",`Now using ${user().name}.`);render()}
-function dateKey(dt){return new Date(dt.getTime()-dt.getTimezoneOffset()*60000).toISOString().slice(0,10)}
-function startOfWeek(dt){let x=new Date(dt);x.setHours(0,0,0,0);let day=x.getDay();x.setDate(x.getDate()+(day===0?-6:1-day));return x}
-function startOfQuarter(dt){let x=new Date(dt.getFullYear(),Math.floor(dt.getMonth()/3)*3,1);x.setHours(0,0,0,0);return x}
-function completionStats(from,to){
-  const u=user();let scheduled=0,completed=0,start=new Date(from),end=new Date(to);
-  start.setHours(0,0,0,0);end.setHours(23,59,59,999);
-  for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1)){
-    const key=dateKey(d),list=getSchedulesForDate(u,d);
-    scheduled+=list.length;
-    completed+=list.filter(t=>u.completionHistory?.[key]?.[t.id]).length;
+
+function renderQuickShop(){
+  const u=user(),quick=document.getElementById("quickShop");
+  if(!quick)return;
+
+  quick.innerHTML=u.shop.slice(0,3).map(x=>`<div class="card" style="margin-bottom:9px">
+    <div class="icon">${esc(x.icon)}</div>
+    <h3>${esc(x.name)}</h3>
+    <div class="cardBottom">
+      <span class="price">${x.price.toLocaleString()} ⭐</span>
+      <button class="btn primary" onclick="buy('${x.id}')" ${u.points<x.price?"disabled":""}>Buy</button>
+    </div>
+  </div>`).join("")||'<div class="empty">No rewards.</div>';
+}
+
+function buy(id){
+  const u=user(),x=u.shop.find(a=>a.id===id);
+  if(!x)return;
+
+  if(u.points<x.price){
+    toast("Not enough points",`${(x.price-u.points).toLocaleString()} more needed.`);
+    return;
   }
-  return {scheduled,completed,rate:scheduled?Math.round(completed/scheduled*100):0};
+
+  u.points-=x.price;
+  u.lifetimeSpent+=x.price;
+  u.totalPurchases++;
+  u.purchaseHistory.push({
+    name:x.name,price:x.price,date:new Date().toISOString()
+  });
+  u.activityLog.push({
+    type:"reward",name:x.name,date:new Date().toISOString(),points:-x.price
+  });
+
+  saveSoon();
+  toast("Reward purchased 🛒",`${x.name} cost ${x.price.toLocaleString()} points.`);
+  requestRender();
 }
+
+/* ---------- Quests ---------- */
+
+function renderQuests(){
+  const u=user(),box=document.getElementById("questArea");
+  if(!box)return;
+
+  const groups={};
+  u.quests.forEach(q=>(groups[q.category]??=[]).push(q));
+
+  let out="";
+  for(const [cat,qs] of Object.entries(groups)){
+    out+=`<div class="questCategory"><b>${esc(cat)}</b><span>${qs.length} quests</span></div>`;
+
+    qs.forEach(q=>{
+      if(q.exerciseGroup){
+        out+=`<div class="card">
+          <div class="questCategory"><b>${esc(q.icon)} ${esc(q.name)}</b><span>+1 point each</span></div>
+          <div class="desc">${esc(q.description)}</div>
+          <div class="exerciseList">
+            ${u.exercises.map(e=>`<div class="exercise">
+              <div><b>${esc(e.name)}</b><br><small>+${e.points} ⭐</small></div>
+              <button onclick="exercise('${e.id}')">Complete</button>
+            </div>`).join("")}
+          </div>
+        </div>`;
+      }else{
+        const done=!!u.completedQuests[q.id];
+        out+=`<div class="card" style="margin-bottom:9px">
+          <div class="cardBottom" style="margin-top:0">
+            <div>
+              <div><b>${esc(q.icon)} ${esc(q.name)}</b></div>
+              <div class="desc">${esc(q.description)}</div>
+            </div>
+            <span class="price">+${q.reward.toLocaleString()} ⭐</span>
+          </div>
+          <div class="cardBottom">
+            <span class="badge">${done?"✓ Claimed":"Available"}</span>
+            <span>
+              <button class="btn" onclick="questModal('${q.id}')">✏️</button>
+              <button class="btn danger" onclick="deleteQuest('${q.id}')">×</button>
+              <button class="btn primary" ${done?"disabled":""} onclick="completeQuest('${q.id}')">${done?"Claimed":"Complete"}</button>
+            </span>
+          </div>
+        </div>`;
+      }
+    });
+  }
+
+  box.innerHTML=out||'<div class="empty">No side quests.</div>';
+}
+
+function exercise(id){
+  const u=user(),e=u.exercises.find(x=>x.id===id);
+  if(!e)return;
+
+  u.points+=e.points;
+  u.lifetimeEarned+=e.points;
+  u.activityLog.push({
+    type:"exercise",name:e.name,date:new Date().toISOString(),points:e.points
+  });
+
+  saveSoon();
+  toast("Exercise quest complete 💪",`+${e.points} point`);
+  requestRender();
+}
+
+function completeQuest(id){
+  const u=user(),q=u.quests.find(x=>x.id===id);
+  if(!q||u.completedQuests[id])return;
+
+  u.completedQuests[id]=true;
+  u.points+=q.reward;
+  u.lifetimeEarned+=q.reward;
+  u.activityLog.push({
+    type:"quest",name:q.name,date:new Date().toISOString(),points:q.reward
+  });
+
+  saveSoon();
+  toast("Quest complete ⚔️",`+${q.reward.toLocaleString()} points`);
+  requestRender();
+}
+
+/* ---------- Users ---------- */
+
+function renderUsers(){
+  const box=document.getElementById("userGrid");
+  if(!box)return;
+
+  const list=Object.values(db.accounts);
+  box.innerHTML=list.map(x=>`<div class="card userCard">
+    <div class="avatar">${esc(x.name[0]?.toUpperCase()||"?")}</div>
+    <div class="userInfo">
+      <b>${esc(x.name)} ${x.id===activeId?"<span class='badge'>• CURRENT</span>":""}</b>
+      <small>${x.points.toLocaleString()} ⭐ · 🔥 ${x.streak} streak</small>
+    </div>
+    <button class="btn ${x.id===activeId?"green":"primary"}" onclick="switchUser('${x.id}')">${x.id===activeId?"Active":"Switch"}</button>
+  </div>`).join("");
+}
+
+function switchUser(id){
+  if(!db.accounts[id])return;
+  activeId=id;
+  db.active=id;
+  saveSoon();
+  toast("Account switched",`Now using ${user().name}.`);
+  requestRender();
+}
+
+/* ---------- Statistics ---------- */
+
+function startOfWeek(dt){
+  const x=new Date(dt);
+  x.setHours(0,0,0,0);
+  const day=x.getDay();
+  x.setDate(x.getDate()+(day===0?-6:1-day));
+  return x;
+}
+
+function startOfQuarter(dt){
+  const x=new Date(
+    dt.getFullYear(),
+    Math.floor(dt.getMonth()/3)*3,
+    1
+  );
+  x.setHours(0,0,0,0);
+  return x;
+}
+
+/*
+  V2 avoids rendering stats unless the Statistics section is open.
+  The calculation itself still uses the original schedule/completion model.
+*/
+function completionStats(from,to){
+  const u=user();
+  let scheduled=0,completed=0;
+  const start=new Date(from),end=new Date(to);
+  start.setHours(0,0,0,0);
+  end.setHours(0,0,0,0);
+
+  for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1)){
+    const key=dateKey(d);
+    const list=getSchedulesForDate(u,d);
+    scheduled+=list.length;
+
+    const history=u.completionHistory?.[key];
+    if(history){
+      for(const t of list){
+        if(history[t.id])completed++;
+      }
+    }
+  }
+
+  return {
+    scheduled,
+    completed,
+    rate:scheduled?Math.round(completed/scheduled*100):0
+  };
+}
+
 function renderStats(){
-  const u=user(),now=new Date(),today=new Date(now);today.setHours(0,0,0,0),week=startOfWeek(now),month=new Date(now.getFullYear(),now.getMonth(),1),quarter=startOfQuarter(now),allStart=new Date(u.createdAt);
-  const sets=[["stToday",completionStats(today,today)],["stWeek",completionStats(week,now)],["stMonth",completionStats(month,now)],["stQuarter",completionStats(quarter,now)],["stAll",completionStats(allStart,now)]];
-  sets.forEach(([id,x])=>{document.getElementById(id).textContent=x.rate+"%";document.getElementById(id+"Sub").textContent=`${x.completed} / ${x.scheduled}`});
-  document.getElementById("statsTableBody").innerHTML=[["Today",sets[0][1]],["This Week",sets[1][1]],["This Month",sets[2][1]],["This Quarter",sets[3][1]],["All Time",sets[4][1]]].map(([label,x])=>`<tr><td><b>${label}</b></td><td>${x.scheduled}</td><td>${x.completed}</td><td>${x.rate}%</td></tr>`).join("");
+  const u=user(),now=new Date();
+  const today=new Date(now);
+  today.setHours(0,0,0,0);
+
+  const week=startOfWeek(now);
+  const month=new Date(now.getFullYear(),now.getMonth(),1);
+  const quarter=startOfQuarter(now);
+  const allStart=new Date(u.createdAt);
+
+  const sets=[
+    ["stToday",completionStats(today,today)],
+    ["stWeek",completionStats(week,now)],
+    ["stMonth",completionStats(month,now)],
+    ["stQuarter",completionStats(quarter,now)],
+    ["stAll",completionStats(allStart,now)]
+  ];
+
+  sets.forEach(([id,x])=>{
+    document.getElementById(id).textContent=x.rate+"%";
+    document.getElementById(id+"Sub").textContent=`${x.completed} / ${x.scheduled}`;
+  });
+
+  document.getElementById("statsTableBody").innerHTML=[
+    ["Today",sets[0][1]],
+    ["This Week",sets[1][1]],
+    ["This Month",sets[2][1]],
+    ["This Quarter",sets[3][1]],
+    ["All Time",sets[4][1]]
+  ].map(([label,x])=>`<tr>
+    <td><b>${label}</b></td>
+    <td>${x.scheduled}</td>
+    <td>${x.completed}</td>
+    <td>${x.rate}%</td>
+  </tr>`).join("");
+
   document.getElementById("sEarned").textContent=u.lifetimeEarned.toLocaleString();
   document.getElementById("sSpent").textContent=u.lifetimeSpent.toLocaleString();
   document.getElementById("sTasks").textContent=u.totalTasks.toLocaleString();
   document.getElementById("sPurchases").textContent=u.totalPurchases.toLocaleString();
   document.getElementById("sStreak").textContent=u.streak;
-  let total=u.lifetimeEarned+u.lifetimeSpent,e=total?u.lifetimeEarned/total*100:0;
+
+  const total=u.lifetimeEarned+u.lifetimeSpent;
+  const e=total?u.lifetimeEarned/total*100:0;
   document.getElementById("economyLabel").textContent=u.lifetimeEarned.toLocaleString();
   document.getElementById("economyBar").style.width=e+"%";
 }
 
-let mode=null,editId=null;
-function modal(title,body,save){document.getElementById("modalTitle").textContent=title;document.getElementById("modalBody").innerHTML=body;document.getElementById("saveModal").onclick=save;document.getElementById("modalBack").classList.add("show")}
-function closeModal(){document.getElementById("modalBack").classList.remove("show");mode=null;editId=null}
+/* ---------- Modals ---------- */
+
+function modal(title,body,save){
+  document.getElementById("modalTitle").textContent=title;
+  document.getElementById("modalBody").innerHTML=body;
+  document.getElementById("saveModal").onclick=save;
+  document.getElementById("modalBack").classList.add("show");
+}
+
+function closeModal(){
+  document.getElementById("modalBack").classList.remove("show");
+  mode=null;
+  editId=null;
+}
+
 function scheduleModal(id=null){
-  let x=id?user().schedules.find(a=>a.id===id):null;editId=id;
-  const selected=x?.days||[0,1,2,3,4,5,6],opts=[[1,"Monday"],[2,"Tuesday"],[3,"Wednesday"],[4,"Thursday"],[5,"Friday"],[6,"Saturday"],[0,"Sunday"]];
-  modal(id?"Edit Schedule":"New Schedule",`<div class="field"><label>Name</label><input id="f1" value="${attr(x?.name||"")}"></div>
-  <div class="field"><label>Time</label><input id="f2" type="time" value="${x?.time||"08:00"}"></div>
-  <div class="field"><label>Points</label><input id="f3" type="number" min="1" value="${x?.reward||20}"></div>
-  <div class="field"><label>Repeat on</label><div class="dayChecks">${opts.map(([v,n])=>`<label class="dayCheck"><input type="checkbox" class="dayPick" value="${v}" ${selected.includes(v)?"checked":""}>${n}</label>`).join("")}</div></div>`,saveSchedule);
+  const x=id?user().schedules.find(a=>a.id===id):null;
+  editId=id;
+
+  const selected=x?.days||[0,1,2,3,4,5,6];
+  const opts=[
+    [1,"Monday"],[2,"Tuesday"],[3,"Wednesday"],
+    [4,"Thursday"],[5,"Friday"],[6,"Saturday"],[0,"Sunday"]
+  ];
+
+  modal(
+    id?"Edit Schedule":"New Schedule",
+    `<div class="field"><label>Name</label><input id="f1" value="${attr(x?.name||"")}"></div>
+    <div class="field"><label>Time</label><input id="f2" type="time" value="${x?.time||"08:00"}"></div>
+    <div class="field"><label>Points</label><input id="f3" type="number" min="1" value="${x?.reward||20}"></div>
+    <div class="field"><label>Repeat on</label><div class="dayChecks">
+      ${opts.map(([v,n])=>`<label class="dayCheck"><input type="checkbox" class="dayPick" value="${v}" ${selected.includes(v)?"checked":""}>${n}</label>`).join("")}
+    </div></div>`,
+    saveSchedule
+  );
 }
+
 function saveSchedule(){
-  let u=user(),name=f("f1"),time=f("f2"),reward=+f("f3"),days=[...document.querySelectorAll(".dayPick:checked")].map(x=>+x.value);
-  if(!name||!time||reward<1||!days.length)return toast("Invalid schedule","Fill the schedule and select at least one day.");
-  if(editId){let x=u.schedules.find(a=>a.id===editId);Object.assign(x,{name,time,reward,days})}
-  else u.schedules.push({id:crypto.randomUUID(),name,time,reward,days});
-  backup("Changed schedule");closeModal();render();
+  const u=user();
+  const name=f("f1").trim();
+  const time=f("f2");
+  const reward=+f("f3");
+  const days=[...document.querySelectorAll(".dayPick:checked")].map(x=>+x.value);
+
+  if(!name||!time||reward<1||!days.length)
+    return toast("Invalid schedule","Fill the schedule and select at least one day.");
+
+  if(editId){
+    const x=u.schedules.find(a=>a.id===editId);
+    if(x)Object.assign(x,{name,time,reward,days});
+  }else{
+    u.schedules.push({id:crypto.randomUUID(),name,time,reward,days});
+  }
+
+  backup("Changed schedule");
+  closeModal();
+  requestRender();
 }
-function deleteSchedule(id){if(!confirm("Delete this schedule?"))return;user().schedules=user().schedules.filter(x=>x.id!==id);backup("Deleted schedule");render()}
-function shopModal(id=null){let x=id?user().shop.find(a=>a.id===id):null;editId=id;modal(id?"Edit Reward":"New Reward",`<div class="field"><label>Icon</label><input id="f1" value="${attr(x?.icon||"🎁")}"></div><div class="field"><label>Name</label><input id="f2" value="${attr(x?.name||"")}"></div><div class="field"><label>Description</label><input id="f3" value="${attr(x?.description||"")}"></div><div class="field"><label>Price</label><input id="f4" type="number" min="1" value="${x?.price||100}"></div>`,saveShop)}
-function saveShop(){let u=user(),icon=f("f1")||"🎁",name=f("f2"),description=f("f3"),price=+f("f4");if(!name||price<1)return toast("Invalid reward","Enter a name and price.");if(editId)Object.assign(u.shop.find(x=>x.id===editId),{icon,name,description,price});else u.shop.push({id:crypto.randomUUID(),icon,name,description,price});backup("Changed shop");closeModal();render()}
-function deleteShop(id){if(confirm("Delete this reward?")){user().shop=user().shop.filter(x=>x.id!==id);backup("Deleted reward");render()}}
-function questModal(id=null){let x=id?user().quests.find(a=>a.id===id):null;editId=id;modal(id?"Edit Quest":"New Quest",`<div class="field"><label>Category</label><select id="f1"><option>Exercise</option><option>Learning</option><option>Life</option><option>Creative</option><option>Personal</option><option>Other</option></select></div><div class="field"><label>Icon</label><input id="f2" value="${attr(x?.icon||"⚔️")}"></div><div class="field"><label>Name</label><input id="f3" value="${attr(x?.name||"")}"></div><div class="field"><label>Description</label><input id="f4" value="${attr(x?.description||"")}"></div><div class="field"><label>Reward</label><input id="f5" type="number" min="1" value="${x?.reward||100}"></div>`,saveQuest);if(x)document.getElementById("f1").value=x.category}
-function saveQuest(){let u=user(),category=f("f1"),icon=f("f2")||"⚔️",name=f("f3"),description=f("f4"),reward=+f("f5");if(!name||reward<1)return toast("Invalid quest","Enter a name and reward.");if(editId){let x=u.quests.find(a=>a.id===editId);Object.assign(x,{category,icon,name,description,reward})}else u.quests.push({id:crypto.randomUUID(),category,icon,name,description,reward});backup("Changed quest");closeModal();render()}
-function deleteQuest(id){if(confirm("Delete this quest?")){user().quests=user().quests.filter(x=>x.id!==id);delete user().completedQuests[id];backup("Deleted quest");render()}}
-function accountModal(){modal("Create Account",`<div class="field"><label>Display name</label><input id="f1" placeholder="Your name"></div>`,createAccount)}
-function createAccount(){let name=f("f1").trim();if(!name)return toast("Name required","Enter a display name.");let x=newAccount(name);db.accounts[x.id]=x;activeId=x.id;db.active=x.id;backup("Created account");closeModal();toast("Account created 👋",`Welcome, ${name}!`);render()}
-function backup(reason){let u=user();u.backups.push({version:u.backups.length+1,date:new Date().toISOString(),reason,data:JSON.parse(JSON.stringify({...u,backups:[]}))});if(u.backups.length>20)u.backups.shift();persist()}
-function showBackups(){let u=user();modal("Backup History",u.backups.length?u.backups.slice().reverse().map(b=>`<div class="card"><b>Version ${b.version}</b><div class="desc">${esc(b.reason)} · ${new Date(b.date).toLocaleString()}</div></div>`).join(""):'<div class="empty">No backups yet.</div>',closeModal)}
-function exportCurrent(){let u=user();let blob=new Blob([JSON.stringify(u,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`lifequest-${u.name.replace(/\W+/g,"-")}.json`;a.click();URL.revokeObjectURL(a.href)}
-function importAccount(e){let file=e.target.files[0];if(!file)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.name||!Array.isArray(x.schedules))throw 0;x.id=crypto.randomUUID();x.backups=x.backups||[];db.accounts[x.id]=x;activeId=x.id;db.active=x.id;persist();render();toast("Imported","Account restored successfully.")}catch{toast("Import failed","Invalid LifeQuest backup.")}};r.readAsText(file)}
+
+function deleteSchedule(id){
+  if(!confirm("Delete this schedule?"))return;
+  user().schedules=user().schedules.filter(x=>x.id!==id);
+  backup("Deleted schedule");
+  requestRender();
+}
+
+function shopModal(id=null){
+  const x=id?user().shop.find(a=>a.id===id):null;
+  editId=id;
+
+  modal(
+    id?"Edit Reward":"New Reward",
+    `<div class="field"><label>Icon</label><input id="f1" value="${attr(x?.icon||"🎁")}"></div>
+    <div class="field"><label>Name</label><input id="f2" value="${attr(x?.name||"")}"></div>
+    <div class="field"><label>Description</label><input id="f3" value="${attr(x?.description||"")}"></div>
+    <div class="field"><label>Price</label><input id="f4" type="number" min="1" value="${x?.price||100}"></div>`,
+    saveShop
+  );
+}
+
+function saveShop(){
+  const u=user(),icon=f("f1")||"🎁",name=f("f2").trim(),
+        description=f("f3").trim(),price=+f("f4");
+
+  if(!name||price<1)return toast("Invalid reward","Enter a name and price.");
+
+  if(editId){
+    const x=u.shop.find(x=>x.id===editId);
+    if(x)Object.assign(x,{icon,name,description,price});
+  }else{
+    u.shop.push({id:crypto.randomUUID(),icon,name,description,price});
+  }
+
+  backup("Changed shop");
+  closeModal();
+  requestRender();
+}
+
+function deleteShop(id){
+  if(!confirm("Delete this reward?"))return;
+  user().shop=user().shop.filter(x=>x.id!==id);
+  backup("Deleted reward");
+  requestRender();
+}
+
+function questModal(id=null){
+  const x=id?user().quests.find(a=>a.id===id):null;
+  editId=id;
+
+  modal(
+    id?"Edit Quest":"New Quest",
+    `<div class="field"><label>Category</label><select id="f1">
+      <option>Exercise</option><option>Learning</option><option>Life</option>
+      <option>Creative</option><option>Personal</option><option>Other</option>
+    </select></div>
+    <div class="field"><label>Icon</label><input id="f2" value="${attr(x?.icon||"⚔️")}"></div>
+    <div class="field"><label>Name</label><input id="f3" value="${attr(x?.name||"")}"></div>
+    <div class="field"><label>Description</label><input id="f4" value="${attr(x?.description||"")}"></div>
+    <div class="field"><label>Reward</label><input id="f5" type="number" min="1" value="${x?.reward||100}"></div>`,
+    saveQuest
+  );
+
+  if(x)document.getElementById("f1").value=x.category;
+}
+
+function saveQuest(){
+  const u=user(),category=f("f1"),icon=f("f2")||"⚔️",
+        name=f("f3").trim(),description=f("f4").trim(),reward=+f("f5");
+
+  if(!name||reward<1)return toast("Invalid quest","Enter a name and reward.");
+
+  if(editId){
+    const x=u.quests.find(x=>x.id===editId);
+    if(x)Object.assign(x,{category,icon,name,description,reward});
+  }else{
+    u.quests.push({id:crypto.randomUUID(),category,icon,name,description,reward});
+  }
+
+  backup("Changed quest");
+  closeModal();
+  requestRender();
+}
+
+function deleteQuest(id){
+  if(!confirm("Delete this quest?"))return;
+  const u=user();
+  u.quests=u.quests.filter(x=>x.id!==id);
+  delete u.completedQuests[id];
+  backup("Deleted quest");
+  requestRender();
+}
+
+function accountModal(){
+  modal(
+    "Create Account",
+    `<div class="field"><label>Display name</label><input id="f1" placeholder="Your name"></div>`,
+    createAccount
+  );
+}
+
+function createAccount(){
+  const name=f("f1").trim();
+  if(!name)return toast("Name required","Enter a display name.");
+
+  const x=newAccount(name);
+  db.accounts[x.id]=x;
+  activeId=x.id;
+  db.active=x.id;
+
+  backup("Created account");
+  closeModal();
+  toast("Account created 👋",`Welcome, ${name}!`);
+  requestRender();
+}
+
+/* ---------- Backups ---------- */
+
+/*
+  Important V2 change:
+  Routine actions no longer create full-account snapshots.
+  Backups are reserved for structural/destructive changes.
+*/
+function backup(reason){
+  const u=user();
+
+  const snapshot=JSON.parse(JSON.stringify({
+    ...u,
+    backups:[]
+  }));
+
+  u.backups.push({
+    version:(u.backups.at(-1)?.version||0)+1,
+    date:new Date().toISOString(),
+    reason,
+    data:snapshot
+  });
+
+  if(u.backups.length>20)u.backups.shift();
+
+  saveSoon();
+  updateBackupCount();
+}
+
+function showBackups(){
+  const u=user();
+
+  modal(
+    "Backup History",
+    u.backups.length
+      ?u.backups.slice().reverse().map(b=>`<div class="card">
+        <b>Version ${b.version}</b>
+        <div class="desc">${esc(b.reason)} · ${new Date(b.date).toLocaleString()}</div>
+      </div>`).join("")
+      :'<div class="empty">No backups yet.</div>',
+    closeModal
+  );
+}
+
+/* ---------- Import / Export ---------- */
+
+function exportCurrent(){
+  const u=user();
+  const blob=new Blob([JSON.stringify(u,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  const url=URL.createObjectURL(blob);
+
+  a.href=url;
+  a.download=`lifequest-${u.name.replace(/\W+/g,"-")}.json`;
+  a.click();
+
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+function importAccount(e){
+  const file=e.target.files[0];
+  if(!file)return;
+
+  const r=new FileReader();
+
+  r.onload=()=>{
+    try{
+      const x=JSON.parse(r.result);
+
+      if(!x.name||!Array.isArray(x.schedules))throw new Error("Invalid account");
+
+      x.id=crypto.randomUUID();
+      migrateSchedules(x);
+
+      db.accounts[x.id]=x;
+      activeId=x.id;
+      db.active=x.id;
+
+      persist();
+      requestRender();
+      toast("Imported","Account restored successfully.");
+    }catch{
+      toast("Import failed","Invalid LifeQuest backup.");
+    }finally{
+      e.target.value="";
+    }
+  };
+
+  r.readAsText(file);
+}
+
+/* ---------- Reset Controls ---------- */
+
 function resetSchedule(){
   if(!confirm("Reset ALL schedules? This will remove the weekly schedule and its completion history, but keep points, quests and shop."))return;
+
   const u=user();
   u.schedules=[];
   u.completedToday={};
   u.completionHistory={};
+
   backup("Reset schedule");
-  render();
+  requestRender();
   toast("Schedule reset","All schedules and schedule history were cleared.");
 }
+
 function resetPoints(){
   if(!confirm("Reset ALL points and point statistics? Schedules, quests and shop will remain."))return;
+
   const u=user();
   u.points=0;
   u.lifetimeEarned=0;
@@ -460,46 +1116,114 @@ function resetPoints(){
   u.totalTasks=0;
   u.totalPurchases=0;
   u.purchaseHistory=[];
-  u.activityLog=(u.activityLog||[]).filter(x=>x.type!=="schedule"&&x.type!=="reward");
+  u.activityLog=(u.activityLog||[]).filter(
+    x=>x.type!=="schedule"&&x.type!=="reward"
+  );
+
   backup("Reset points");
-  render();
+  requestRender();
   toast("Points reset","All point balances and point statistics were cleared.");
 }
+
 function resetQuests(){
   if(!confirm("Reset ALL side quests? This will clear quest completion history, but keep schedules, points and shop."))return;
+
   const u=user();
   u.completedQuests={};
   u.activityLog=(u.activityLog||[]).filter(x=>x.type!=="quest");
+
   backup("Reset quests");
-  render();
+  requestRender();
   toast("Quests reset","Quest completion history was cleared.");
 }
+
 function resetShop(){
   if(!confirm("Reset the Point Shop? Custom rewards will be replaced by the default shop and purchase history will be cleared."))return;
+
   const u=user();
   const fresh=newAccount(u.name);
+
   u.shop=fresh.shop;
   u.purchaseHistory=[];
   u.totalPurchases=0;
   u.activityLog=(u.activityLog||[]).filter(x=>x.type!=="reward");
+
   backup("Reset Point Shop");
-  render();
+  requestRender();
   toast("Point Shop reset","The default rewards were restored.");
 }
+
 function resetAccount(){
   if(!confirm("RESET EVERYTHING for this account? All points, schedules, quests, Point Shop, statistics and history will be deleted."))return;
-  const old=user(),fresh=newAccount(old.name);
+
+  const old=user();
+  const fresh=newAccount(old.name);
   fresh.id=old.id;
+
   db.accounts[activeId]=fresh;
-  backup("Reset everything");
-  render();
+
+  /*
+    The old V1 backup call happened after replacing the account,
+    so it did not actually preserve the pre-reset state.
+    V2 captures the old account before replacement.
+  */
+  const backupData=JSON.parse(JSON.stringify({...old,backups:[]}));
+  fresh.backups=[{
+    version:1,
+    date:new Date().toISOString(),
+    reason:"Reset everything",
+    data:backupData
+  }];
+
+  saveSoon();
+  requestRender();
   toast("Everything reset","This account has been returned to a fresh state.");
 }
-function f(id){return document.getElementById(id).value}
-function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
-function attr(v){return esc(v)}
-function toast(title,text){let x=document.createElement("div");x.className="toast";x.innerHTML=`<b>${esc(title)}</b><small>${esc(text)}</small>`;toastBox.appendChild(x);setTimeout(()=>x.remove(),3000)}
-modalBack.addEventListener("click",e=>{if(e.target===modalBack)closeModal()});document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});window.addEventListener("beforeunload",()=>persist());setInterval(()=>persist(),5000);
+
+/* ---------- Helpers ---------- */
+
+function f(id){
+  return document.getElementById(id).value;
+}
+
+function esc(v){
+  return String(v??"").replace(/[&<>"']/g,c=>({
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#039;"
+  }[c]));
+}
+
+function attr(v){
+  return esc(v);
+}
+
+function toast(title,text){
+  const x=document.createElement("div");
+  x.className="toast";
+  x.innerHTML=`<b>${esc(title)}</b><small>${esc(text)}</small>`;
+  toastBox.appendChild(x);
+  setTimeout(()=>x.remove(),3000);
+}
+
+/* ---------- Events ---------- */
+
+modalBack.addEventListener("click",e=>{
+  if(e.target===modalBack)closeModal();
+});
+
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape")closeModal();
+});
+
+window.addEventListener("beforeunload",flushSave);
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="hidden")flushSave();
+});
+
+/* Initial render — no storage write required. */
 render();
 </script>
 </body>
