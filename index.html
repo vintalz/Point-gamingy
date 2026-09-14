@@ -43,6 +43,9 @@
 .metricGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:12px}
 .miniMetric{background:#111c30aa;border:1px solid var(--line);border-radius:12px;padding:12px}
 .miniMetric b{font-size:20px;display:block}.miniMetric small{color:var(--muted)}
+.versionGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.versionCard{min-height:280px}.versionRows{display:grid;gap:7px;margin-top:12px}.versionRow{display:grid;grid-template-columns:34px 65px 1fr;gap:7px;align-items:center;border-bottom:1px solid var(--line);padding:6px 0}.versionNum{color:var(--muted);font-size:11px;text-align:center}.versionTime{font-size:11px;color:var(--gold);font-weight:800}.versionName{font-size:12px}.versionEditor{width:100%;overflow-x:auto}.versionEditor table{width:100%;border-collapse:separate;border-spacing:0;min-width:620px}.versionEditor th,.versionEditor td{padding:7px;border-bottom:1px solid var(--line);text-align:left}.versionEditor input{width:100%;background:#080e1a;color:white;border:1px solid var(--line);padding:8px;border-radius:8px}.versionEditor .removeRow{padding:7px 9px}.diceBox{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+@media(max-width:1050px){.versionGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.versionGrid{grid-template-columns:1fr}}
 @media(max-width:1200px){.metricGrid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:760px){.metricGrid{grid-template-columns:repeat(2,1fr)}}
 </style>
@@ -54,6 +57,7 @@
   <nav class="nav">
     <button class="active" onclick="nav('dashboard',this)">📊 Dashboard</button>
     <button onclick="nav('schedule',this)">📅 Schedule</button>
+    <button onclick="nav('versions',this)">🔢 Versions</button>
     <button onclick="nav('shop',this)">🛒 Point Shop</button>
     <button onclick="nav('quests',this)">⚔️ Side Quests</button>
     <button onclick="nav('users',this)">👥 Users</button>
@@ -88,11 +92,30 @@
     <button class="btn" onclick="setScheduleFilter('weekday')">Mon–Fri</button>
     <button class="btn" onclick="setScheduleFilter('weekend')">Weekend</button>
   </div>
+  <div class="card diceBox" style="margin-bottom:14px">
+    <div style="flex:1;min-width:300px">
+      <div class="panelTitle">📋 Choose a Version for a Day</div>
+      <div class="panelSub">Choose one day. Each purchased dice roll randomly selects one saved schedule version and assigns it to that day until you roll again or clear the day.</div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <select id="scheduleDayChoice" aria-label="Choose the day for the dice roll" style="min-width:180px;background:#080e1a;color:white;border:1px solid var(--line);padding:9px;border-radius:9px">
+          <option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="0">Sunday</option>
+        </select>
+        <button class="btn danger" onclick="clearSelectedDayVersion()">Clear Selected Day</button>
+      </div>
+    </div>
+    <button class="btn primary" onclick="rollScheduleVersion()">🎲 Roll Version <span id="rollTokenCount"></span></button>
+  </div>
   <div class="tableWrap"><table class="weekTable">
     <thead><tr><th>Time</th><th>Monday</th><th>Tuesday</th><th>Wednesday</th><th>Thursday</th><th>Friday</th><th>Saturday</th><th>Sunday</th></tr></thead>
     <tbody id="weekTableBody"></tbody>
   </table></div>
 </div>
+</section>
+
+<section id="versions" class="section">
+<div class="top"><div><div class="title">Versions 🔢</div><div class="sub">Create different schedule versions and switch between them easily.</div></div><button class="btn primary" onclick="versionModal()">＋ Add Version</button></div>
+<div class="notice"><b>Version layout:</b> each version is shown like a column. You can make versions such as School, Weekend, Exam Week, Vacation, or any routine you want.</div>
+<div id="versionGrid" class="versionGrid"></div>
 </section>
 
 <section id="shop" class="section">
@@ -287,6 +310,12 @@ function newAccount(name){
   points:0,lifetimeEarned:0,lifetimeSpent:0,streak:0,lastActiveDay:null,
   totalTasks:0,totalPurchases:0,completedToday:{},completionHistory:{},completedQuests:{},purchaseHistory:[],activityLog:[],
   backups:[],
+  scheduleVersions:[],
+  dailyVersionSchedules:{},
+  dailyVersionNames:{},
+  weeklyVersionSchedules:{},
+  weeklyVersionNames:{},
+  versionRolls:0,
   schedules:[
    {id:crypto.randomUUID(),name:"Wake up",time:"07:00",reward:20,days:[0,1,2,3,4,5,6]},
    {id:crypto.randomUUID(),name:"Study session",time:"09:00",reward:20,days:[0,1,2,3,4,5,6]},
@@ -297,7 +326,8 @@ function newAccount(name){
    {id:crypto.randomUUID(),icon:"📱",name:"Dopamine Scroll",description:"Intentional screen time as a reward.",price:100},
    {id:crypto.randomUUID(),icon:"🎮",name:"Gaming Session",description:"A gaming session earned through completed work.",price:250},
    {id:crypto.randomUUID(),icon:"🍕",name:"Favorite Snack",description:"Enjoy a snack as a reward.",price:150},
-   {id:crypto.randomUUID(),icon:"🎬",name:"Movie Night",description:"Relax with a movie.",price:500}
+   {id:crypto.randomUUID(),icon:"🎬",name:"Movie Night",description:"Relax with a movie.",price:500},
+   {id:crypto.randomUUID(),icon:"🎲",name:"Dice Roll Version",description:"Buy one dice roll to randomly choose a saved version for a selected day of the week.",price:100,special:"version_roll"}
   ],
   quests:[
    {id:crypto.randomUUID(),category:"Exercise",icon:"🏃",name:"Movement",description:"Choose one short exercise below.",reward:1,repeatable:true,exerciseGroup:true},
@@ -329,7 +359,16 @@ function migrateSchedules(u){
   if(!u.completedQuests)u.completedQuests={};
   if(!u.purchaseHistory)u.purchaseHistory=[];
   if(!u.backups)u.backups=[];
+  if(!Array.isArray(u.scheduleVersions))u.scheduleVersions=[];
+  if(!u.dailyVersionSchedules)u.dailyVersionSchedules={};
+  if(!u.dailyVersionNames)u.dailyVersionNames={};
+  if(!u.weeklyVersionSchedules)u.weeklyVersionSchedules={};
+  if(!u.weeklyVersionNames)u.weeklyVersionNames={};
+  if(typeof u.versionRolls!=="number")u.versionRolls=0;
+  if(!("lastPointDecayDay" in u))u.lastPointDecayDay=null;
   if(!Array.isArray(u.shop))u.shop=[];
+  if(!u.shop.some(x=>x.special==="version_roll")){u.shop.push({id:crypto.randomUUID(),icon:"🎲",name:"Dice Roll Version",description:"Buy one dice roll to randomly choose a saved version for a selected day of the week.",price:100,special:"version_roll"});}
+  if(typeof u.versionRolls!=="number")u.versionRolls=0;
   if(!Array.isArray(u.quests))u.quests=[];
   if(!Array.isArray(u.exercises))u.exercises=[];
 }
@@ -350,6 +389,77 @@ function dateKey(dt){
   const d=new Date(dt);
   d.setHours(0,0,0,0);
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
+
+/* ---------- Daily Point Decay ---------- */
+/*
+  At the end of every completed calendar day, 1% of the current point
+  balance is removed. If the browser was closed at midnight, missed days
+  are processed automatically the next time the app opens.
+*/
+function addDaysLocal(dt,days){
+  const d=new Date(dt);
+  d.setDate(d.getDate()+days);
+  d.setHours(0,0,0,0);
+  return d;
+}
+
+function applyDailyPointDecay(){
+  const u=user();
+  if(!u)return;
+
+  const todayKey=day();
+
+  // First activation establishes today's baseline.
+  if(!u.lastPointDecayDay){
+    u.lastPointDecayDay=todayKey;
+    return;
+  }
+
+  let cursor=addDaysLocal(new Date(u.lastPointDecayDay+"T00:00:00"),1);
+  const today=new Date(todayKey+"T00:00:00");
+  let changed=false;
+
+  while(cursor<today){
+    // Points are integer-based in LifeQuest, so use floor(1%) to avoid
+    // fractional balances. Balances below 100 points lose 0 points.
+    const decay=Math.floor(Math.max(0,u.points)*0.01);
+
+    if(decay>0){
+      u.points=Math.max(0,u.points-decay);
+      u.activityLog.push({
+        type:"decay",
+        name:"Daily 1% point decay",
+        date:cursor.toISOString(),
+        points:-decay
+      });
+      changed=true;
+    }
+
+    u.lastPointDecayDay=dateKeyLocal(cursor);
+    cursor=addDaysLocal(cursor,1);
+  }
+
+  u.lastPointDecayDay=todayKey;
+
+  if(changed){
+    saveSoon();
+    toast("Daily decay 📉","1% of your points was deducted for each completed day.");
+  }
+}
+
+function scheduleNextDecayCheck(){
+  clearTimeout(window.lifeQuestDecayTimer);
+  const now=new Date();
+  const next=new Date(now);
+  next.setHours(24,0,1,0);
+
+  window.lifeQuestDecayTimer=setTimeout(()=>{
+    applyDailyPointDecay();
+    requestRender();
+    scheduleNextDecayCheck();
+  },Math.max(1000,next-now));
 }
 
 /* ---------- Navigation / Rendering ---------- */
@@ -381,6 +491,7 @@ function render(){
   const u=user(),d=day();
   if(!u)return;
   migrateSchedules(u);
+  applyDailyPointDecay();
 
   if(!u.completedToday[d])u.completedToday[d]={};
 
@@ -396,6 +507,11 @@ function render(){
       break;
     case "schedule":
       renderWeekTable();
+      renderRollTokens();
+      renderScheduleVersionChoice();
+      break;
+    case "versions":
+      renderVersions();
       break;
     case "shop":
       renderShop();
@@ -450,10 +566,23 @@ function updateBackupCount(){
 }
 
 function getSchedulesForDate(u,date){
+  const dateKey=dateKeyLocal(date);
+  if(u.dailyVersionSchedules && u.dailyVersionSchedules[dateKey]){
+    return u.dailyVersionSchedules[dateKey].slice().sort((a,b)=>a.time.localeCompare(b.time));
+  }
   const dow=date.getDay();
+  if(u.weeklyVersionSchedules && u.weeklyVersionSchedules[String(dow)]){
+    return u.weeklyVersionSchedules[String(dow)].slice().sort((a,b)=>a.time.localeCompare(b.time));
+  }
   return u.schedules
     .filter(t=>(t.days||[0,1,2,3,4,5,6]).includes(dow))
     .sort((a,b)=>a.time.localeCompare(b.time));
+}
+
+function dateKeyLocal(dt){
+  const d=new Date(dt);
+  d.setHours(0,0,0,0);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 
 function renderTasks(id,actions){
@@ -485,6 +614,177 @@ function setScheduleFilter(f){
   renderWeekTable();
 }
 
+function renderScheduleVersionChoice(){
+  const daySelect=document.getElementById("scheduleDayChoice");
+  if(!daySelect)return;
+
+  const currentDow=new Date().getDay();
+  if(!daySelect.dataset.ready){
+    daySelect.value=String(currentDow);
+    daySelect.dataset.ready="1";
+  }
+}
+
+function applyVersionToDay(v,dow){
+  const u=user();
+  if(!u.weeklyVersionSchedules)u.weeklyVersionSchedules={};
+  if(!u.weeklyVersionNames)u.weeklyVersionNames={};
+  u.weeklyVersionSchedules[String(dow)]=JSON.parse(JSON.stringify(v.schedules||[])).map(x=>({...x,id:crypto.randomUUID(),days:[Number(dow)]}));
+  u.weeklyVersionNames[String(dow)]=v.name;
+
+  // If this is today, start a fresh completion record for the new day's schedule.
+  if(Number(dow)===new Date().getDay()){
+    const todayKey=day();
+    if(!u.completedToday)u.completedToday={};
+    u.completedToday[todayKey]={};
+    if(!u.completionHistory)u.completionHistory={};
+    u.completionHistory[todayKey]={};
+  }
+}
+
+
+function clearSelectedDayVersion(){
+  const u=user();
+  const daySelect=document.getElementById("scheduleDayChoice");
+  const dow=Number(daySelect?.value);
+  const dayNames=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  if(!u.weeklyVersionSchedules?.[dow])return toast("No version active",`${dayNames[dow]} is already using the normal weekly schedule.`);
+  delete u.weeklyVersionSchedules[dow];
+  if(u.weeklyVersionNames)delete u.weeklyVersionNames[dow];
+  if(dow===new Date().getDay()){
+    const todayKey=day();
+    if(u.completedToday)delete u.completedToday[todayKey];
+  }
+  saveSoon();
+  requestRender();
+  toast("Day cleared",`${dayNames[dow]} is using the normal weekly schedule again.`);
+}
+
+function renderRollTokens(){
+  const el=document.getElementById("rollTokenCount");
+  if(el)el.textContent=`(${user().versionRolls||0})`;
+}
+
+function renderVersions(){
+  const u=user(),box=document.getElementById("versionGrid");
+  if(!box)return;
+  if(!u.scheduleVersions.length){
+    box.innerHTML='<div class="empty">No versions yet. Click ＋ Add Version to create your first one.</div>';
+    return;
+  }
+  box.innerHTML=u.scheduleVersions.map((v,index)=>{
+    const rows=v.schedules||[];
+    const shown=rows.slice(0,14).map((x,i)=>`<div class="versionRow"><span class="versionNum">${i+1}</span><span class="versionTime">${esc(x.time)}</span><span class="versionName">${esc(x.name)}</span></div>`).join("");
+    return `<div class="card versionCard">
+      <div class="panelHead"><div><div class="panelTitle">${esc(v.name)}</div><div class="panelSub">Version ${index+1} · ${rows.length} schedules</div></div><span class="badge">${new Date(v.createdAt).toLocaleDateString()}</span></div>
+      <div class="versionRows">${shown||'<div class="empty">Empty version</div>'}${rows.length>14?`<small class="sub">+ ${rows.length-14} more schedules</small>`:""}</div>
+      <div class="cardBottom">
+        <button class="btn primary" onclick="loadVersionById('${v.id}')">📥 Load</button>
+        <span><button class="btn" onclick="editVersion('${v.id}')">✏️</button> <button class="btn danger" onclick="deleteVersionById('${v.id}')">×</button></span>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function versionModal(id=null){
+  const u=user(),v=id?u.scheduleVersions.find(x=>x.id===id):null;
+  editId=id;
+  const rows=v?.schedules?.length?v.schedules:[];
+  let html=`<div class="field"><label>Version name</label><input id="versionName" value="${attr(v?.name||"")}" placeholder="School Schedule"></div>
+  <div class="versionEditor"><table><thead><tr><th>#</th><th>Time</th><th>Schedule</th><th>Points</th><th></th></tr></thead><tbody id="versionRowsEditor">`;
+  if(rows.length){rows.forEach((x,i)=>{html+=versionEditorRow(i,x);});}else{html+=versionEditorRow(0,{time:"07:00",name:"",reward:20});}
+  html+=`</tbody></table></div><button class="btn" type="button" onclick="addVersionEditorRow()">＋ Add Schedule Row</button>
+  <div class="notice" style="margin:0">Each row becomes a schedule for every day. After loading, you can change the days from the normal Schedule menu.</div>`;
+  modal(id?"Edit Version":"Add Version",html,saveVersion);
+}
+
+function versionEditorRow(i,x){
+  return `<tr class="versionEditRow"><td>${i+1}</td><td><input class="vTime" type="time" value="${attr(x?.time||"08:00")}"></td><td><input class="vName" value="${attr(x?.name||"")}" placeholder="Bible"></td><td><input class="vReward" type="number" min="1" value="${x?.reward||20}"></td><td><button class="btn danger removeRow" type="button" onclick="this.closest('tr').remove()">×</button></td></tr>`;
+}
+
+function addVersionEditorRow(){
+  const body=document.getElementById("versionRowsEditor");
+  if(!body)return;
+  const i=body.querySelectorAll(".versionEditRow").length;
+  body.insertAdjacentHTML("beforeend",versionEditorRow(i,{time:"08:00",name:"",reward:20}));
+}
+
+function saveVersion(){
+  const u=user(),name=f("versionName").trim();
+  const rows=[...document.querySelectorAll(".versionEditRow")].map(r=>({
+    id:crypto.randomUUID(),
+    time:r.querySelector(".vTime").value,
+    name:r.querySelector(".vName").value.trim(),
+    reward:+r.querySelector(".vReward").value,
+    days:[0,1,2,3,4,5,6]
+  })).filter(x=>x.name&&x.time&&x.reward>0);
+  if(!name)return toast("Invalid version","Enter a name for the version.");
+  if(!rows.length)return toast("No schedules","Add at least one schedule row.");
+  if(editId){
+    const v=u.scheduleVersions.find(x=>x.id===editId);
+    if(v)Object.assign(v,{name,schedules:rows});
+  }else{
+    u.scheduleVersions.push({id:crypto.randomUUID(),name,createdAt:new Date().toISOString(),schedules:rows});
+  }
+  saveSoon();
+  closeModal();
+  requestRender();
+  toast("Version saved 🔢",`${name} is ready to use.`);
+}
+
+function loadVersionById(id){
+  const u=user(),v=u.scheduleVersions.find(x=>x.id===id);
+  if(!v)return;
+  if(!confirm(`Load "${v.name}"? This will replace your current schedules.`))return;
+  u.schedules=JSON.parse(JSON.stringify(v.schedules)).map(x=>({...x,id:crypto.randomUUID(),days:Array.isArray(x.days)?x.days:[0,1,2,3,4,5,6]}));
+  u.completedToday={};
+  u.completionHistory={};
+  backup("Loaded version: "+v.name);
+  requestRender();
+  toast("Version loaded 📥",v.name+" is now your active schedule.");
+}
+
+function editVersion(id){versionModal(id);}
+
+function deleteVersionById(id){
+  const u=user(),v=u.scheduleVersions.find(x=>x.id===id);
+  if(!v)return;
+  if(!confirm(`Delete version "${v.name}"?`))return;
+  u.scheduleVersions=u.scheduleVersions.filter(x=>x.id!==id);
+  saveSoon();
+  requestRender();
+  toast("Version deleted",v.name+" was removed.");
+}
+
+function rollScheduleVersion(){
+  const u=user();
+
+  if((u.versionRolls||0)<1)
+    return toast("No dice rolls 🎲","Buy a Dice Roll Version in the Point Shop first.");
+
+  if(!u.scheduleVersions.length)
+    return toast("No versions","Create at least one saved version first.");
+
+  const daySelect=document.getElementById("scheduleDayChoice");
+  if(!daySelect || daySelect.value==="")
+    return toast("Choose a day","Select the weekday you want the dice to change.");
+
+  const dow=Number(daySelect.value);
+  const dayNames=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+  // The dice is the only mechanism that randomly selects a saved version.
+  const v=u.scheduleVersions[Math.floor(Math.random()*u.scheduleVersions.length)];
+
+  u.versionRolls--;
+  applyVersionToDay(v,dow);
+
+  backup(`Dice roll assigned ${v.name} to ${dayNames[dow]}`);
+  saveSoon();
+  requestRender();
+
+  toast("🎲 Version rolled!",`${v.name} was randomly assigned to ${dayNames[dow]}. One dice roll was used.`);
+}
+
 function renderWeekTable(){
   const u=user(),body=document.getElementById("weekTableBody");
   if(!body)return;
@@ -497,7 +797,12 @@ function renderWeekTable(){
   if(scheduleFilter==="weekend")
     schedules=schedules.filter(t=>(t.days||[]).some(d=>[0,6].includes(d)));
 
-  const times=[...new Set(schedules.map(x=>x.time))].sort();
+  const allTimes=[];
+  days.forEach(dow=>{
+    const source=(u.weeklyVersionSchedules&&u.weeklyVersionSchedules[String(dow)])||schedules;
+    source.forEach(x=>{if((x.days||[0,1,2,3,4,5,6]).includes(dow))allTimes.push(x.time);});
+  });
+  const times=[...new Set(allTimes)].sort();
 
   if(!times.length){
     body.innerHTML='<tr><td colspan="8" class="empty">No schedules match this filter.</td></tr>';
@@ -506,7 +811,8 @@ function renderWeekTable(){
 
   body.innerHTML=times.map(time=>{
     const cells=days.map(dow=>{
-      const items=schedules.filter(t=>
+      const source=(u.weeklyVersionSchedules&&u.weeklyVersionSchedules[String(dow)])||schedules;
+      const items=source.filter(t=>
         t.time===time &&
         (t.days||[0,1,2,3,4,5,6]).includes(dow)
       );
@@ -531,7 +837,7 @@ function completeSchedule(id){
   const u=user(),d=day();
   if(u.completedToday[d][id])return;
 
-  const t=u.schedules.find(x=>x.id===id);
+  const t=getSchedulesForDate(u,new Date()).find(x=>x.id===id);
   if(!t)return;
 
   u.completedToday[d][id]=true;
@@ -605,6 +911,7 @@ function buy(id){
   }
 
   u.points-=x.price;
+  if(x.special==="version_roll")u.versionRolls=(u.versionRolls||0)+1;
   u.lifetimeSpent+=x.price;
   u.totalPurchases++;
   u.purchaseHistory.push({
@@ -1098,6 +1405,10 @@ function resetSchedule(){
 
   const u=user();
   u.schedules=[];
+  u.dailyVersionSchedules={};
+  u.dailyVersionNames={};
+  u.weeklyVersionSchedules={};
+  u.weeklyVersionNames={};
   u.completedToday={};
   u.completionHistory={};
 
@@ -1116,8 +1427,9 @@ function resetPoints(){
   u.totalTasks=0;
   u.totalPurchases=0;
   u.purchaseHistory=[];
+  u.lastPointDecayDay=day();
   u.activityLog=(u.activityLog||[]).filter(
-    x=>x.type!=="schedule"&&x.type!=="reward"
+    x=>x.type!=="schedule"&&x.type!=="reward"&&x.type!=="decay"
   );
 
   backup("Reset points");
@@ -1224,7 +1536,9 @@ document.addEventListener("visibilitychange",()=>{
 });
 
 /* Initial render — no storage write required. */
+applyDailyPointDecay();
 render();
+scheduleNextDecayCheck();
 </script>
 </body>
 </html>
