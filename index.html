@@ -19,7 +19,11 @@
 .shopGrid,.questGrid,.userGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.card{background:#111c30aa;border:1px solid var(--line);border-radius:14px;padding:15px}.icon{font-size:27px}.card h3{margin:7px 0 4px}.desc{font-size:12px;color:var(--muted);line-height:1.5;min-height:34px}.cardBottom{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px}.price{color:var(--gold);font-weight:900}
 .questCategory{display:flex;align-items:center;justify-content:space-between;margin:20px 0 10px}.questCategory:first-child{margin-top:0}.questCategory b{font-size:15px}.questCategory span{font-size:11px;color:var(--muted)}.exerciseList{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.exercise{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line);background:#0c1423;border-radius:10px;padding:10px 11px}.exercise small{color:var(--muted)}.exercise button{border:0;background:#35e39a16;color:var(--green);border-radius:8px;padding:6px 9px;font-weight:800}.exercise button:disabled{opacity:.4}
 .section{display:none}.section.active{display:block}.empty{padding:25px;text-align:center;color:var(--muted)}
-.modalBack{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:50;padding:18px}.modalBack.show{display:flex}.modal{width:min(520px,100%);background:#0d1525;border:1px solid var(--line);border-radius:18px;padding:20px}.modal h2{margin-top:0}.form{display:grid;gap:12px}.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}.field input,.field select{width:100%;background:#080e1a;color:white;border:1px solid var(--line);padding:11px;border-radius:9px}.actions{display:flex;justify-content:flex-end;gap:8px;margin-top:17px}
+.modalBack{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:50;padding:18px}.modalBack.show{display:flex}.modal{width:min(520px,100%);max-height:calc(100vh - 36px);display:flex;flex-direction:column;overflow:hidden;background:#0d1525;border:1px solid var(--line);border-radius:18px;padding:20px}
+.modal .form{min-height:0;overflow-y:auto;overflow-x:hidden;padding-right:4px}
+.modal .actions{flex:0 0 auto}
+.versionEditor{max-height:52vh;overflow:auto;width:100%;border:1px solid var(--line);border-radius:10px}
+.versionEditor table{margin:0}.modal h2{margin-top:0}.form{display:grid;gap:12px}.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}.field input,.field select{width:100%;background:#080e1a;color:white;border:1px solid var(--line);padding:11px;border-radius:9px}.actions{display:flex;justify-content:flex-end;gap:8px;margin-top:17px}
 .toastBox{position:fixed;right:18px;bottom:18px;display:grid;gap:8px;z-index:100}.toast{background:#111c30;border:1px solid var(--line);border-radius:12px;padding:13px 15px;min-width:240px;box-shadow:0 20px 50px #0008}.toast b{display:block}.toast small{color:var(--muted)}
 .userCard{display:flex;gap:12px;align-items:center}.avatar{width:45px;height:45px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,var(--purple),var(--cyan));font-weight:900}.userCard .userInfo{flex:1}.userInfo b{display:block}.userInfo small{color:var(--muted)}.badge{font-size:11px;color:var(--gold)}
 .notice{padding:13px;border:1px solid #765cff44;background:#765cff0d;border-radius:12px;color:var(--muted);font-size:12px;line-height:1.5;margin-bottom:14px}
@@ -87,6 +91,8 @@
 #calendarGrid .historyDay.future{opacity:.35;cursor:default}
 #calendarPrevMonth:disabled,#calendarNextMonth:disabled{opacity:.35;cursor:not-allowed}
 
+
+.versionSaveHint{font-size:11px;color:var(--muted);margin-top:8px}
 </style>
 </head>
 <body>
@@ -354,7 +360,7 @@
 <div class="toastBox" id="toastBox"></div>
 
 <script>
-/* LifeQuest V2 — performance-optimized state/render system */
+/* LifeQuest V3 — canonical history ledger + optimized rendering + robust modal UX */
 const KEY="lifequest_accounts_v3";
 let saveTimer=null;
 let renderFrame=null;
@@ -841,9 +847,17 @@ function versionModal(id=null){
   let html=`<div class="field"><label>Version name</label><input id="versionName" value="${attr(v?.name||"")}" placeholder="School Schedule"></div>
   <div class="versionEditor"><table><thead><tr><th>#</th><th>Time</th><th>Schedule</th><th>Points</th><th></th></tr></thead><tbody id="versionRowsEditor">`;
   if(rows.length){rows.forEach((x,i)=>{html+=versionEditorRow(i,x);});}else{html+=versionEditorRow(0,{time:"07:00",name:"",reward:20});}
-  html+=`</tbody></table></div><button class="btn" type="button" onclick="addVersionEditorRow()">＋ Add Schedule Row</button>
+  html+=`</tbody></table></div><button class="btn" type="button" onclick="addVersionEditorRow()">＋ Add Schedule Row</button><div class="versionSaveHint">Tip: the schedule list scrolls independently. The Save button stays visible at the bottom of the modal.</div>
   <div class="notice" style="margin:0">Each row becomes a schedule for every day. After loading, you can change the days from the normal Schedule menu.</div>`;
   modal(id?"Edit Version":"Add Version",html,saveVersion);
+}
+
+
+/* ---------- V3 Modal UX ---------- */
+/* Keep long forms usable on laptops, tablets, and phones. */
+function focusModalForm(){
+  const body=document.getElementById("modalBody");
+  if(body)body.scrollTop=0;
 }
 
 function versionEditorRow(i,x){
@@ -995,7 +1009,7 @@ function completeSchedule(id){
   u.lifetimeEarned+=t.reward;
   u.totalTasks++;
   u.activityLog.push({
-    type:"schedule",name:t.name,date:new Date().toISOString(),points:t.reward
+    type:"schedule",name:t.name,scheduleId:t.id,date:new Date().toISOString(),points:t.reward
   });
 
   updateStreak();
@@ -1131,7 +1145,7 @@ function exercise(id){
   if(!markDailyQuestClaimed("exercise",id))return;
   u.points+=e.points;
   u.lifetimeEarned+=e.points;
-  u.activityLog.push({type:"exercise",name:e.name,date:new Date().toISOString(),points:e.points});
+  u.activityLog.push({type:"exercise",name:e.name,exerciseId:e.id,date:new Date().toISOString(),points:e.points});
   saveSoon();
   toast("Exercise quest complete 💪",`+${e.points} point`);
   requestRender();
@@ -1147,7 +1161,7 @@ function completeQuest(id){
   if(!markDailyQuestClaimed("quest",id))return;
   u.points+=q.reward;
   u.lifetimeEarned+=q.reward;
-  u.activityLog.push({type:"quest",name:q.name,date:new Date().toISOString(),points:q.reward});
+  u.activityLog.push({type:"quest",name:q.name,questId:q.id,date:new Date().toISOString(),points:q.reward});
   saveSoon();
   toast("Quest complete ⚔️",`+${q.reward.toLocaleString()} points`);
   requestRender();
@@ -1188,49 +1202,71 @@ function localDateKeyFromISO(iso){
 }
 
 function historyEventsByDate(){
-  const u=user(),events={};
-  if(!u)return events;
+  const u=user(),map={};
+  if(!u)return map;
+
+  /*
+    V3 authoritative history ledger:
+    - activityLog is the canonical event stream.
+    - purchaseHistory/completionHistory are used only as migration fallbacks
+      for legacy records that were created before the event stream existed.
+    - Each migrated fallback is deduplicated against the canonical ledger.
+  */
   const add=(date,event)=>{
-    const key=dateKeyLocal(date);
-    if(!key)return;
-    (events[key]??=[]).push(event);
+    if(!date)return;
+    if(!map[date])map[date]=[];
+    map[date].push(event);
   };
 
-  (u.purchaseHistory||[]).forEach(x=>add(x.date,{
-    type:"purchase",title:x.name||"Point Shop purchase",
-    detail:"Point Shop purchase",points:-Number(x.price||0),time:x.date
-  }));
+  const canonical=u.activityLog||[];
 
-  (u.activityLog||[]).forEach(x=>add(x.date,{
-    type:x.type||"activity",title:x.name||x.type||"Activity",
-    detail:x.type==="schedule"?"Schedule completed":
-      x.type==="quest"?"Side quest completed":
-      x.type==="exercise"?"Exercise completed":
-      x.type==="decay"?"Daily 1% point decay":
-      x.type==="reward"?"Point Shop purchase":"Activity",
-    points:Number(x.points||0),time:x.date
-  }));
+  canonical.forEach((e,i)=>{
+    const d=e.date?dateKeyLocal(e.date):null;
+    if(!d)return;
+    add(d,{...e,_source:"activityLog",_index:i});
+  });
 
-  // Legacy schedule records only: add them when the new activity log has no
-  // matching event, so history is not double-counted.
-  const logged=new Set((u.activityLog||[]).filter(x=>x.type==="schedule")
-    .map(x=>`${dateKeyLocal(x.date)}|${x.name}`));
+  // Legacy purchases: only add if no matching purchase event already exists.
+  (u.purchaseHistory||[]).forEach((p,i)=>{
+    const d=p.date?dateKeyLocal(p.date):null;
+    if(!d)return;
+    const duplicate=canonical.some(e=>
+      (e.type==="purchase"||e.type==="reward") &&
+      e.name===p.name &&
+      Number(e.points||0)===-Math.abs(Number(p.price||0)) &&
+      d===dateKeyLocal(e.date)
+    );
+    if(!duplicate){
+      add(d,{type:"purchase",name:p.name,price:p.price,points:-Math.abs(Number(p.price||0)),date:p.date,_source:"legacyPurchase",_index:i});
+    }
+  });
 
-  Object.entries(u.completionHistory||{}).forEach(([date,completed])=>{
-    if(!completed||typeof completed!=="object")return;
-    const schedules=getSchedulesForDate(u,new Date(date+"T12:00:00"));
-    schedules.forEach(t=>{
-      if(!completed[t.id])return;
-      const key=`${date}|${t.name}`;
-      if(!logged.has(key))add(date,{
-        type:"schedule",title:t.name,detail:"Schedule completed (legacy history)",
-        points:Number(t.reward||0),time:date+"T12:00:00"
-      });
+  // Legacy schedule completion history: add only if canonical schedule event is absent.
+  Object.entries(u.completionHistory||{}).forEach(([d,items])=>{
+    Object.keys(items||{}).forEach(id=>{
+      const duplicate=canonical.some(e=>
+        e.type==="schedule" &&
+        d===dateKeyLocal(e.date) &&
+        (e.scheduleId===id || e.id===id)
+      );
+      if(!duplicate){
+        const t=(u.schedules||[]).find(x=>x.id===id);
+        add(d,{
+          type:"schedule",
+          name:t?.name||"Completed schedule",
+          points:Number(t?.reward||0),
+          date:d+"T12:00:00",
+          scheduleId:id,
+          _source:"legacySchedule"
+        });
+      }
     });
   });
 
-  Object.values(events).forEach(list=>list.sort((a,b)=>new Date(a.time||0)-new Date(b.time||0)));
-  return events;
+  Object.values(map).forEach(arr=>arr.sort((a,b)=>
+    String(a.date||"").localeCompare(String(b.date||""))
+  ));
+  return map;
 }
 
 function dateRangeForHistory(){
@@ -1945,8 +1981,11 @@ applyDailyPointDecay();
 render();
 scheduleNextDecayCheck();
 /* LIFEQUEST_HISTORY_LISTENERS_V3 */
-document.getElementById("historyPrevMonth")?.addEventListener("click",()=>changeHistoryMonth(-1));
-document.getElementById("historyNextMonth")?.addEventListener("click",()=>changeHistoryMonth(1));
+if(!window.lifeQuestHistoryListenersBound){
+  document.getElementById("historyPrevMonth")?.addEventListener("click",()=>changeHistoryMonth(-1));
+  document.getElementById("historyNextMonth")?.addEventListener("click",()=>changeHistoryMonth(1));
+  window.lifeQuestHistoryListenersBound=true;
+}
 </script>
 </body>
 </html>
