@@ -22,7 +22,7 @@
 .modalBack{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:50;padding:18px}.modalBack.show{display:flex}.modal{width:min(520px,100%);max-height:calc(100vh - 36px);display:flex;flex-direction:column;overflow:hidden;background:#0d1525;border:1px solid var(--line);border-radius:18px;padding:20px}
 .modal .form{min-height:0;overflow-y:auto;overflow-x:hidden;padding-right:4px}
 .modal .actions{flex:0 0 auto}
-.versionEditor{max-height:52vh;overflow:auto;width:100%;border:1px solid var(--line);border-radius:10px}
+.versionEditor{max-height:52vh;overflow:auto;width:100%;border:1px solid var(--line);border-radius:10px;scrollbar-width:auto;scrollbar-color:#526485 #080e1a;overscroll-behavior:contain}.versionEditor::-webkit-scrollbar{width:14px;height:14px}.versionEditor::-webkit-scrollbar-track{background:#080e1a;border-radius:10px}.versionEditor::-webkit-scrollbar-thumb{background:#526485;border:3px solid #080e1a;border-radius:10px}.versionEditor::-webkit-scrollbar-thumb:hover{background:#7183a8}
 .versionEditor table{margin:0}.modal h2{margin-top:0}.form{display:grid;gap:12px}.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}.field input,.field select{width:100%;background:#080e1a;color:white;border:1px solid var(--line);padding:11px;border-radius:9px}.actions{display:flex;justify-content:flex-end;gap:8px;margin-top:17px}
 .toastBox{position:fixed;right:18px;bottom:18px;display:grid;gap:8px;z-index:100}.toast{background:#111c30;border:1px solid var(--line);border-radius:12px;padding:13px 15px;min-width:240px;box-shadow:0 20px 50px #0008}.toast b{display:block}.toast small{color:var(--muted)}
 .userCard{display:flex;gap:12px;align-items:center}.avatar{width:45px;height:45px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,var(--purple),var(--cyan));font-weight:900}.userCard .userInfo{flex:1}.userInfo b{display:block}.userInfo small{color:var(--muted)}.badge{font-size:11px;color:var(--gold)}
@@ -847,7 +847,7 @@ function versionModal(id=null){
   let html=`<div class="field"><label>Version name</label><input id="versionName" value="${attr(v?.name||"")}" placeholder="School Schedule"></div>
   <div class="versionEditor"><table><thead><tr><th>#</th><th>Time</th><th>Schedule</th><th>Points</th><th></th></tr></thead><tbody id="versionRowsEditor">`;
   if(rows.length){rows.forEach((x,i)=>{html+=versionEditorRow(i,x);});}else{html+=versionEditorRow(0,{time:"07:00",name:"",reward:20});}
-  html+=`</tbody></table></div><button class="btn" type="button" onclick="addVersionEditorRow()">＋ Add Schedule Row</button><div class="versionSaveHint">Tip: the schedule list scrolls independently. The Save button stays visible at the bottom of the modal.</div>
+  html+=`</tbody></table></div><button class="btn" type="button" onclick="addVersionEditorRow()">＋ Add Schedule Row</button><div class="versionSaveHint">Tip: drag the scrollbar on the right to move through many schedules. Adding a row automatically scrolls to the new row, while Save stays visible at the bottom of the modal.</div>
   <div class="notice" style="margin:0">Each row becomes a schedule for every day. After loading, you can change the days from the normal Schedule menu.</div>`;
   modal(id?"Edit Version":"Add Version",html,saveVersion);
 }
@@ -861,7 +861,16 @@ function focusModalForm(){
 }
 
 function versionEditorRow(i,x){
-  return `<tr class="versionEditRow"><td>${i+1}</td><td><input class="vTime" type="time" value="${attr(x?.time||"08:00")}"></td><td><input class="vName" value="${attr(x?.name||"")}" placeholder="Bible"></td><td><input class="vReward" type="number" min="1" value="${x?.reward||20}"></td><td><button class="btn danger removeRow" type="button" onclick="this.closest('tr').remove()">×</button></td></tr>`;
+  return `<tr class="versionEditRow"><td>${i+1}</td><td><input class="vTime" type="time" value="${attr(x?.time||"08:00")}"></td><td><input class="vName" value="${attr(x?.name||"")}" placeholder="Bible"></td><td><input class="vReward" type="number" min="1" value="${x?.reward||20}"></td><td><button class="btn danger removeRow" type="button" onclick="removeVersionEditorRow(this)">×</button></td></tr>`;
+}
+
+function renumberVersionEditorRows(){
+  const body=document.getElementById("versionRowsEditor");
+  if(!body)return;
+  body.querySelectorAll(".versionEditRow").forEach((row,i)=>{
+    const n=row.querySelector("td:first-child");
+    if(n)n.textContent=i+1;
+  });
 }
 
 function addVersionEditorRow(){
@@ -869,6 +878,20 @@ function addVersionEditorRow(){
   if(!body)return;
   const i=body.querySelectorAll(".versionEditRow").length;
   body.insertAdjacentHTML("beforeend",versionEditorRow(i,{time:"08:00",name:"",reward:20}));
+  renumberVersionEditorRows();
+  const editor=body.closest(".versionEditor");
+  if(editor){
+    requestAnimationFrame(()=>{
+      editor.scrollTo({top:editor.scrollHeight,behavior:"smooth"});
+    });
+  }
+}
+
+function removeVersionEditorRow(button){
+  const row=button?.closest(".versionEditRow");
+  if(!row)return;
+  row.remove();
+  renumberVersionEditorRows();
 }
 
 function saveVersion(){
