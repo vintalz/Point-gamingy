@@ -19,7 +19,8 @@
 .btn{border:1px solid var(--line);background:#111c30;color:var(--text);padding:9px 12px;border-radius:10px}.btn:hover{border-color:#526485}.primary{background:linear-gradient(135deg,var(--purple),#6047dc);border:0}.danger{color:var(--red)}.green{color:var(--green)}
 .progress{height:9px;background:#070b14;border:1px solid var(--line);border-radius:99px;overflow:hidden}.bar{height:100%;width:0;background:linear-gradient(90deg,var(--purple),var(--cyan));transition:.4s}.progressTop{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin:13px 0 6px}
 .shopGrid,.questGrid,.userGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.card{background:#111c30aa;border:1px solid var(--line);border-radius:14px;padding:15px}.icon{font-size:27px}.card h3{margin:7px 0 4px}.desc{font-size:12px;color:var(--muted);line-height:1.5;min-height:34px}.cardBottom{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px}.price{color:var(--gold);font-weight:900}
-.questCategory{display:flex;align-items:center;justify-content:space-between;margin:20px 0 10px}.questCategory:first-child{margin-top:0}.questCategory b{font-size:15px}.questCategory span{font-size:11px;color:var(--muted)}.exerciseList{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.exercise{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line);background:#0c1423;border-radius:10px;padding:10px 11px}.exercise small{color:var(--muted)}.exercise button{border:0;background:#35e39a16;color:var(--green);border-radius:8px;padding:6px 9px;font-weight:800}.exercise button:disabled{opacity:.4}
+.questCategory{display:flex;align-items:center;justify-content:space-between;margin:20px 0 10px}.questCategory:first-child{margin-top:0}.questCategory b{font-size:15px}.questCategory span{font-size:11px;color:var(--muted)}.questCategoryTools{display:flex;align-items:center;gap:6px}.questCategoryTools .btn{padding:5px 8px;font-size:11px}.questModeBadge{display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--cyan);border:1px solid #22d3ee33;background:#22d3ee0c;border-radius:999px;padding:3px 7px;margin-left:7px}.exerciseGroupCard{padding:18px}.exerciseGroupHead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}.exerciseGroupTitle{font-size:20px;font-weight:900}.exerciseList{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.exercise{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line);background:#0c1423;border-radius:10px;padding:10px 11px}.exercise small{color:var(--muted)}.exercise button{border:0;background:#35e39a16;color:var(--green);border-radius:8px;padding:6px 9px;font-weight:800}.exercise button:disabled{opacity:.4}.movementExerciseEditor{display:grid;gap:9px;max-height:48vh;overflow-y:auto;padding-right:4px}.movementExerciseRow{display:grid;grid-template-columns:24px 1fr auto;gap:8px;align-items:center;border:1px solid var(--line);background:#0c1423;border-radius:11px;padding:10px}.movementExerciseGrip{color:var(--muted);font-size:18px;text-align:center}.movementExerciseFields{display:grid;grid-template-columns:1fr 110px;gap:9px}.movementExerciseFields .field{min-width:0}.movementExerciseActions{display:flex;gap:5px;align-items:center}.movementExerciseActions .btn{padding:7px 9px}.movementExerciseEditor::-webkit-scrollbar{width:12px}.movementExerciseEditor::-webkit-scrollbar-track{background:#080e1a;border-radius:8px}.movementExerciseEditor::-webkit-scrollbar-thumb{background:#526485;border:3px solid #080e1a;border-radius:8px}.movementExerciseEditor{scrollbar-width:auto;scrollbar-color:#526485 #080e1a}
+.categoryManagerList{display:grid;gap:8px;margin-top:10px}.categoryManagerItem{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--line);background:#0c1423;border-radius:10px;padding:10px 12px}.categoryManagerItem small{color:var(--muted)}
 .section{display:none}.section.active{display:block}.empty{padding:25px;text-align:center;color:var(--muted)}
 .modalBack{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;z-index:50;padding:18px}.modalBack.show{display:flex}.modal{width:min(520px,100%);max-height:calc(100vh - 36px);display:flex;flex-direction:column;overflow:hidden;background:#0d1525;border:1px solid var(--line);border-radius:18px;padding:20px}
 .modal .form{min-height:0;overflow-y:auto;overflow-x:hidden;padding-right:4px}
@@ -31,7 +32,7 @@
 .notice{padding:13px;border:1px solid #765cff44;background:#765cff0d;border-radius:12px;color:var(--muted);font-size:12px;line-height:1.5;margin-bottom:14px}
 .mobile{display:none}
 @media(max-width:1050px){.stats{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}}
-@media(max-width:760px){.modalBack{backdrop-filter:none}.sidebar{display:none}.main{margin:0;width:100%;padding:17px}.mobile{display:flex;margin-bottom:18px}.top{flex-direction:column}.date{text-align:left}.shopGrid,.questGrid,.userGrid,.exerciseList{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){.modalBack{backdrop-filter:none}.sidebar{display:none}.main{margin:0;width:100%;padding:17px}.mobile{display:flex;margin-bottom:18px}.top{flex-direction:column}.date{text-align:left}.shopGrid,.questGrid,.userGrid,.exerciseList{grid-template-columns:1fr}.movementExerciseFields{grid-template-columns:1fr}.movementExerciseRow{grid-template-columns:20px 1fr}.movementExerciseActions{grid-column:2;justify-content:flex-end}.stats{grid-template-columns:1fr 1fr}}
 
 .tableWrap{width:100%;overflow-x:auto}
 .weekTable,.statsTable,.historyTable{width:100%;border-collapse:separate;border-spacing:0;min-width:1050px}
@@ -188,7 +189,7 @@
 </section>
 
 <section id="quests" class="section">
-<div class="top"><div><div class="title">Side Quests ⚔️</div><div class="sub">Organized by category so small actions and big achievements stay separate.</div></div><button class="btn primary" onclick="questModal()">＋ New Quest</button></div>
+<div class="top"><div><div class="title">Side Quests ⚔️</div><div class="sub">Create your own categories and choose how each side-quest group is displayed.</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="categoryModal()">＋ Category</button><button class="btn primary" onclick="questModal()">＋ New Quest</button></div></div>
 <div class="notice">Exercise quests are intentionally short and reasonable. Stop if something hurts, and don't use the point system to pressure yourself into excessive exercise.</div>
 <div class="panel"><div id="questArea"></div></div>
 </section>
@@ -504,6 +505,7 @@ function newAccount(name){
   backups:[],
   scheduleVersions:[],
   rulesNotepad:'',
+  questCategories:["Exercise","Learning","Life","Creative","Personal","Other"],
   dailyVersionSchedules:{},
   dailyVersionNames:{},
   weeklyVersionSchedules:{},
@@ -568,6 +570,10 @@ function migrateSchedules(u){
   if(typeof u.versionRolls!=="number")u.versionRolls=0;
   if(!Array.isArray(u.quests))u.quests=[];
   if(!Array.isArray(u.exercises))u.exercises=[];
+  if(!Array.isArray(u.questCategories))u.questCategories=[];
+  // Preserve legacy categories while allowing completely custom categories.
+  u.quests.forEach(q=>{if(q?.category && !u.questCategories.includes(q.category))u.questCategories.push(q.category);});
+  ["Exercise","Learning","Life","Creative","Personal","Other"].forEach(c=>{if(!u.questCategories.includes(c))u.questCategories.push(c);});
 }
 
 /* ---------- Dates ---------- */
@@ -1290,27 +1296,63 @@ function buy(id){
 
 /* ---------- Quests ---------- */
 
+function getQuestCategories(){
+  const u=user();
+  if(!u)return [];
+  const result=[];
+  const add=c=>{
+    c=String(c||"").trim();
+    if(c&&!result.includes(c))result.push(c);
+  };
+  (u.questCategories||[]).forEach(add);
+  (u.quests||[]).forEach(q=>add(q.category));
+  return result;
+}
+
 function renderQuests(){
   const u=user(),box=document.getElementById("questArea");
   if(!box)return;
   const groups={};
-  u.quests.forEach(q=>(groups[q.category]??=[]).push(q));
+  (u.quests||[]).forEach(q=>(groups[q.category||"Other"]??=[]).push(q));
+  const categories=getQuestCategories();
   let out="";
-  for(const [cat,qs] of Object.entries(groups)){
-    out+=`<div class="questCategory"><b>${esc(cat)}</b><span>${qs.length} quests</span></div>`;
+
+  categories.forEach(cat=>{
+    const qs=groups[cat]||[];
+    out+=`<div class="questCategory">
+      <div><b>${esc(cat)}</b><span> · ${qs.length} quest${qs.length===1?"":"s"}</span></div>
+      <div class="questCategoryTools">
+        <button class="btn" type="button" onclick="categoryModal('${attr(cat)}')">✏️</button>
+      </div>
+    </div>`;
+
+    if(!qs.length){
+      out+=`<div class="empty" style="padding:12px 0 18px">No quests in this category yet. <button class="btn" type="button" onclick="questModal(null,'${attr(cat)}')">＋ Add quest</button></div>`;
+      return;
+    }
+
     qs.forEach(q=>{
       if(q.exerciseGroup){
-        out+=`<div class="card">
-          <div class="questCategory"><b>${esc(q.icon)} ${esc(q.name)}</b><span>Daily • once per exercise</span></div>
-          <div class="desc">${esc(q.description)}</div>
+        out+=`<div class="card exerciseGroupCard">
+          <div class="exerciseGroupHead">
+            <div>
+              <div class="exerciseGroupTitle">${esc(q.icon)} ${esc(q.name)} <span class="questModeBadge">🏃 Movement mode</span></div>
+              <div class="desc">${esc(q.description)}</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0">
+              <button class="btn" type="button" onclick="questModal('${q.id}')">✏️ Edit</button>
+              <button class="btn" type="button" onclick="movementExerciseListModal()">✏️ Edit List</button>
+              <button class="btn danger" type="button" onclick="deleteQuest('${q.id}')">×</button>
+            </div>
+          </div>
           <div class="exerciseList">
-            ${u.exercises.map(e=>{
+            ${(u.exercises||[]).map(e=>{
               const claimed=isDailyQuestClaimed("exercise",e.id);
               return `<div class="exercise">
-                <div><b>${esc(e.name)}</b><br><small>+${e.points} ⭐</small></div>
+                <div><b>${esc(e.name)}</b><br><small>+${Number(e.points||0).toLocaleString()} ⭐</small></div>
                 <button class="btn primary" ${claimed?"disabled":""} onclick="exercise('${e.id}')">${claimed?"✓ Completed Today":"Complete"}</button>
               </div>`;
-            }).join("")}
+            }).join("")||'<div class="empty" style="grid-column:1/-1">No exercises yet.</div>'}
           </div>
         </div>`;
       }else{
@@ -1318,7 +1360,7 @@ function renderQuests(){
         out+=`<div class="card" style="margin-bottom:9px">
           <div class="cardBottom" style="margin-top:0">
             <div><div><b>${esc(q.icon)} ${esc(q.name)}</b></div><div class="desc">${esc(q.description)}</div></div>
-            <span class="price">+${q.reward.toLocaleString()} ⭐</span>
+            <span class="price">+${Number(q.reward||0).toLocaleString()} ⭐</span>
           </div>
           <div class="cardBottom">
             <span class="badge">${claimed?"✓ Claimed Today":"Available Today"}</span>
@@ -1331,8 +1373,10 @@ function renderQuests(){
         </div>`;
       }
     });
-  }
-  box.innerHTML=out||'<div class="empty">No side quests.</div>';
+  });
+
+  if(!categories.length)out='<div class="empty">No categories yet. Create your first category.</div>';
+  box.innerHTML=out;
 }
 
 function exercise(id){
@@ -1923,51 +1967,220 @@ function deleteShop(id){
   requestRender();
 }
 
-function questModal(id=null){
-  const x=id?user().quests.find(a=>a.id===id):null;
+function questModal(id=null,defaultCategory=""){
+  const u=user();
+  const x=id?u.quests.find(a=>a.id===id):null;
   editId=id;
+  const categories=getQuestCategories();
+  const currentCategory=x?.category||defaultCategory||categories[0]||"Other";
+  const modeValue=x?.exerciseGroup?"movement":"standard";
+  const categoryOptions=categories.map(c=>`<option value="${attr(c)}" ${c===currentCategory?"selected":""}>${esc(c)}</option>`).join("");
 
   modal(
-    id?"Edit Quest":"New Quest",
-    `<div class="field"><label>Category</label><select id="f1">
-      <option>Exercise</option><option>Learning</option><option>Life</option>
-      <option>Creative</option><option>Personal</option><option>Other</option>
-    </select></div>
+    id?"Edit Side Quest":"New Side Quest",
+    `<div class="field"><label>Display Mode</label><select id="f0" onchange="toggleQuestModeFields()">
+      <option value="standard" ${modeValue==="standard"?"selected":""}>⚔️ Standard Side Quest</option>
+      <option value="movement" ${modeValue==="movement"?"selected":""}>🏃 Movement / Exercise List (like the picture)</option>
+    </select><small style="display:block;color:var(--muted);margin-top:5px">Movement mode displays the large exercise list with a Complete button for each exercise.</small></div>
+    <div class="field"><label>Category</label><select id="f1" onchange="toggleCustomQuestCategory()">${categoryOptions}<option value="__custom__">＋ Create new category…</option></select>
+      <input id="f1custom" style="display:none;margin-top:8px" placeholder="e.g. Family, Faith, Health, Finance" maxlength="50">
+    </div>
     <div class="field"><label>Icon</label><input id="f2" value="${attr(x?.icon||"⚔️")}"></div>
-    <div class="field"><label>Name</label><input id="f3" value="${attr(x?.name||"")}"></div>
-    <div class="field"><label>Description</label><input id="f4" value="${attr(x?.description||"")}"></div>
-    <div class="field"><label>Reward</label><input id="f5" type="number" min="1" value="${x?.reward||100}"></div>`,
+    <div class="field"><label>Name</label><input id="f3" value="${attr(x?.name||"")}" placeholder="e.g. Movement"></div>
+    <div class="field"><label>Description</label><input id="f4" value="${attr(x?.description||"")}" placeholder="What should this quest group do?"></div>
+    <div class="field" id="questRewardField"><label>Reward</label><input id="f5" type="number" min="1" value="${x?.reward||100}"></div>`,
     saveQuest
   );
+  toggleQuestModeFields();
+}
 
-  if(x)document.getElementById("f1").value=x.category;
+function toggleQuestModeFields(){
+  const movement=f("f0")==="movement";
+  const reward=document.getElementById("questRewardField");
+  if(reward)reward.style.display=movement?"none":"block";
+}
+
+/* ---------- Movement exercise list editor ---------- */
+function movementExerciseListModal(){
+  const u=user();
+  const exercises=Array.isArray(u.exercises)?u.exercises:[];
+  const rows=exercises.map((e,i)=>movementExerciseEditorRow(e,i)).join("");
+  modal(
+    "Edit Movement Exercise List",
+    `<div class="notice">Edit the exercises that appear inside every 🏃 Movement list. You can change the name and reward, add new exercises, delete exercises, and change their order. Changes are saved to your Movement list immediately after pressing Save.</div>
+     <div id="movementExerciseEditor" class="movementExerciseEditor">${rows||'<div class="empty" id="movementExerciseEmpty">No exercises yet. Add your first exercise below.</div>'}</div>
+     <button class="btn" type="button" style="width:100%;margin-top:10px" onclick="addMovementExerciseRow()">＋ Add Exercise</button>`,
+    saveMovementExerciseList
+  );
+}
+
+function movementExerciseEditorRow(e,index){
+  const id=e?.id||"";
+  return `<div class="movementExerciseRow" data-id="${attr(id)}">
+    <div class="movementExerciseGrip">☷</div>
+    <div class="movementExerciseFields">
+      <div class="field"><label>Exercise ${index+1}</label><input class="movementExerciseName" value="${attr(e?.name||"")}" maxlength="80" placeholder="e.g. 10-minute walk"></div>
+      <div class="field"><label>Reward ⭐</label><input class="movementExercisePoints" type="number" min="1" step="1" value="${Math.max(1,Number(e?.points||1))}"></div>
+    </div>
+    <div class="movementExerciseActions">
+      <button class="btn" type="button" title="Move up" onclick="moveMovementExerciseRow(this,-1)">↑</button>
+      <button class="btn" type="button" title="Move down" onclick="moveMovementExerciseRow(this,1)">↓</button>
+      <button class="btn danger" type="button" title="Delete exercise" onclick="removeMovementExerciseRow(this)">×</button>
+    </div>
+  </div>`;
+}
+
+function renumberMovementExerciseRows(){
+  document.querySelectorAll("#movementExerciseEditor .movementExerciseRow").forEach((row,i)=>{
+    const label=row.querySelector("label");
+    if(label)label.textContent="Exercise "+(i+1);
+  });
+}
+
+function addMovementExerciseRow(){
+  const editor=document.getElementById("movementExerciseEditor");
+  if(!editor)return;
+  const empty=document.getElementById("movementExerciseEmpty");
+  if(empty)empty.remove();
+  const wrap=document.createElement("div");
+  wrap.innerHTML=movementExerciseEditorRow({id:"",name:"",points:1},editor.querySelectorAll(".movementExerciseRow").length).trim();
+  const row=wrap.firstElementChild;
+  editor.appendChild(row);
+  renumberMovementExerciseRows();
+  const input=row.querySelector(".movementExerciseName");
+  input?.focus();
+  row.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+
+function moveMovementExerciseRow(button,direction){
+  const row=button.closest(".movementExerciseRow"),editor=document.getElementById("movementExerciseEditor");
+  if(!row||!editor)return;
+  const rows=[...editor.querySelectorAll(".movementExerciseRow")];
+  const index=rows.indexOf(row),target=index+direction;
+  if(target<0||target>=rows.length)return;
+  if(direction<0)editor.insertBefore(row,rows[target]);
+  else editor.insertBefore(row,rows[target].nextSibling);
+  renumberMovementExerciseRows();
+}
+
+function removeMovementExerciseRow(button){
+  const row=button.closest(".movementExerciseRow"),editor=document.getElementById("movementExerciseEditor");
+  if(!row||!editor)return;
+  const name=row.querySelector(".movementExerciseName")?.value.trim()||"this exercise";
+  if(!confirm(`Delete "${name}" from the Movement list? Existing Calendar history will remain.`))return;
+  row.remove();
+  renumberMovementExerciseRows();
+  if(!editor.querySelector(".movementExerciseRow"))editor.innerHTML='<div class="empty" id="movementExerciseEmpty">No exercises yet. Add your first exercise below.</div>';
+}
+
+function saveMovementExerciseList(){
+  const u=user(),editor=document.getElementById("movementExerciseEditor");
+  if(!editor)return;
+  const rows=[...editor.querySelectorAll(".movementExerciseRow")];
+  const next=[];
+  for(const row of rows){
+    const name=row.querySelector(".movementExerciseName")?.value.trim()||"";
+    const points=Math.max(1,Number(row.querySelector(".movementExercisePoints")?.value||1));
+    if(!name)return toast("Exercise name required","Every Movement exercise needs a name.");
+    next.push({id:row.dataset.id||crypto.randomUUID(),name,points});
+  }
+  u.exercises=next;
+  backup("Updated Movement exercise list");
+  saveSoon();
+  closeModal();
+  toast("Movement list saved 💪",`${next.length} exercise${next.length===1?"":"s"} in the list.`);
+  requestRender();
+}
+
+function toggleCustomQuestCategory(){
+  const select=document.getElementById("f1"),input=document.getElementById("f1custom");
+  if(!select||!input)return;
+  const custom=select.value==="__custom__";
+  input.style.display=custom?"block":"none";
+  if(custom)setTimeout(()=>input.focus(),0);
 }
 
 function saveQuest(){
-  const u=user(),category=f("f1"),icon=f("f2")||"⚔️",
-        name=f("f3").trim(),description=f("f4").trim(),reward=+f("f5");
+  const u=user();
+  const select=f("f1");
+  const custom=select==="__custom__"?f("f1custom").trim():select;
+  const category=custom||"Other";
+  const icon=f("f2")||"⚔️";
+  const name=f("f3").trim();
+  const description=f("f4").trim();
+  const movement=f("f0")==="movement";
+  const reward=Math.max(1,+f("f5")||1);
 
-  if(!name||reward<1)return toast("Invalid quest","Enter a name and reward.");
+  if(!name)return toast("Name required","Enter a side-quest name.");
+  if(!u.questCategories.includes(category))u.questCategories.push(category);
 
   if(editId){
     const x=u.quests.find(x=>x.id===editId);
-    if(x)Object.assign(x,{category,icon,name,description,reward});
+    if(x)Object.assign(x,{category,icon,name,description,reward,exerciseGroup:movement});
   }else{
-    u.quests.push({id:crypto.randomUUID(),category,icon,name,description,reward});
+    u.quests.push({id:crypto.randomUUID(),category,icon,name,description,reward,exerciseGroup:movement});
   }
 
-  backup("Changed quest");
+  backup(movement?"Changed movement side quest":"Changed side quest");
   closeModal();
   requestRender();
 }
 
 function deleteQuest(id){
-  if(!confirm("Delete this quest?"))return;
+  if(!confirm("Delete this side quest? Its existing Calendar history will remain."))return;
   const u=user();
   u.quests=u.quests.filter(x=>x.id!==id);
   delete u.completedQuests[id];
   backup("Deleted quest");
   requestRender();
+}
+
+function categoryModal(editName=null){
+  const u=user();
+  editId=null;
+  const categories=getQuestCategories();
+  const used=new Set((u.quests||[]).map(q=>q.category));
+  const list=categories.map(c=>`<div class="categoryManagerItem"><div><b>${esc(c)}</b><br><small>${used.has(c)?"Used by quests":"Empty category"}</small></div><span>${used.has(c)?"":"<button class=\"btn danger\" type=\"button\" onclick=\"deleteQuestCategory('"+attr(c)+"')\">×</button>"}</span></div>`).join("");
+
+  modal(
+    editName?"Edit Category":"Manage Side-Quest Categories",
+    `<div class="field"><label>${editName?"Category name":"New category"}</label><input id="f1" maxlength="50" value="${attr(editName||"")}" placeholder="e.g. Family, Faith, Finance"></div>
+     ${editName?"":"<div class=\"desc\">Create your own category, then select it whenever you add or edit a side quest.</div>"}
+     <div class="categoryManagerList">${list||'<div class="empty">No categories yet.</div>'}</div>`,
+    editName?()=>saveQuestCategory(editName):addQuestCategory
+  );
+}
+
+function addQuestCategory(){
+  const u=user(),name=f("f1").trim();
+  if(!name)return toast("Category name required","Enter a category name.");
+  if(getQuestCategories().some(c=>c.toLowerCase()===name.toLowerCase()))return toast("Category already exists","Choose a different name.");
+  u.questCategories.push(name);
+  backup("Created quest category");
+  closeModal();
+  requestRender();
+}
+
+function saveQuestCategory(oldName){
+  const u=user(),name=f("f1").trim();
+  if(!name)return toast("Category name required","Enter a category name.");
+  if(name!==oldName && getQuestCategories().some(c=>c.toLowerCase()===name.toLowerCase()))return toast("Category already exists","Choose a different name.");
+  const idx=(u.questCategories||[]).indexOf(oldName);
+  if(idx>=0)u.questCategories[idx]=name;
+  (u.quests||[]).forEach(q=>{if(q.category===oldName)q.category=name;});
+  backup("Renamed quest category");
+  closeModal();
+  requestRender();
+}
+
+function deleteQuestCategory(name){
+  const u=user();
+  const used=(u.quests||[]).some(q=>q.category===name);
+  if(used)return toast("Category is in use","Edit or move its quests before deleting the category.");
+  if(!confirm(`Delete the empty category “${name}”?`))return;
+  u.questCategories=(u.questCategories||[]).filter(c=>c!==name);
+  categoryModal();
+  backup("Deleted quest category");
 }
 
 function accountModal(){
