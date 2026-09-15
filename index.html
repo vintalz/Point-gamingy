@@ -142,10 +142,21 @@
     <div style="flex:1;min-width:300px">
       <div class="panelTitle">📋 Choose a Version for a Day</div>
       <div class="panelSub">Choose one day. Each purchased dice roll randomly selects one saved schedule version and assigns it to that day until you roll again or clear the day.</div>
-      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        <select id="scheduleDayChoice" aria-label="Choose the day for the dice roll" style="min-width:180px;background:#080e1a;color:white;border:1px solid var(--line);padding:9px;border-radius:9px">
-          <option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="0">Sunday</option>
-        </select>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:end">
+        <div>
+          <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:5px">Day</label>
+          <select id="scheduleDayChoice" aria-label="Choose the day for the dice roll" style="min-width:180px;background:#080e1a;color:white;border:1px solid var(--line);padding:9px;border-radius:9px">
+            <option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="0">Sunday</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:5px">Random version range</label>
+          <div style="display:flex;gap:6px;align-items:center">
+            <select id="versionRangeFrom" aria-label="Random version range start" onchange="syncVersionRange()" style="min-width:110px;background:#080e1a;color:white;border:1px solid var(--line);padding:9px;border-radius:9px"></select>
+            <span style="color:var(--muted)">to</span>
+            <select id="versionRangeTo" aria-label="Random version range end" style="min-width:110px;background:#080e1a;color:white;border:1px solid var(--line);padding:9px;border-radius:9px"></select>
+          </div>
+        </div>
         <button class="btn danger" onclick="clearSelectedDayVersion()">Clear Selected Day</button>
       </div>
     </div>
@@ -770,14 +781,43 @@ function setScheduleFilter(f){
 
 function renderScheduleVersionChoice(){
   const daySelect=document.getElementById("scheduleDayChoice");
+  const from=document.getElementById("versionRangeFrom");
+  const to=document.getElementById("versionRangeTo");
   if(!daySelect)return;
 
+  const u=user();
   const currentDow=new Date().getDay();
   if(!daySelect.dataset.ready){
     daySelect.value=String(currentDow);
     daySelect.dataset.ready="1";
   }
+
+  if(from&&to){
+    const count=u.scheduleVersions.length;
+    const oldFrom=Number(from.value)||1;
+    const oldTo=Number(to.value)||count;
+    const fromValue=Math.min(Math.max(oldFrom,1),Math.max(count,1));
+    const toValue=Math.min(Math.max(oldTo,fromValue),Math.max(count,1));
+    from.innerHTML=count?Array.from({length:count},(_,i)=>`<option value="${i+1}">Version ${i+1}</option>`).join(""):"<option value="1">Version 1</option>";
+    to.innerHTML=count?Array.from({length:count},(_,i)=>`<option value="${i+1}">Version ${i+1}</option>`).join(""):"<option value="1">Version 1</option>";
+    from.value=String(Math.min(fromValue,count||1));
+    to.value=String(Math.min(Math.max(toValue,fromValue),count||1));
+    if(count){
+      from.title="First version included in the random range";
+      to.title="Last version included in the random range";
+    }
+  }
 }
+
+function syncVersionRange(){
+  const from=document.getElementById("versionRangeFrom");
+  const to=document.getElementById("versionRangeTo");
+  if(!from||!to)return;
+  const start=Number(from.value)||1;
+  const end=Number(to.value)||start;
+  if(end<start)to.value=String(start);
+}
+
 
 function applyVersionToDay(v,dow){
   const u=user();
@@ -958,7 +998,16 @@ function rollScheduleVersion(){
   const dayNames=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
   // The dice is the only mechanism that randomly selects a saved version.
-  const v=u.scheduleVersions[Math.floor(Math.random()*u.scheduleVersions.length)];
+  // The user can restrict the random draw to an inclusive version range.
+  const fromEl=document.getElementById("versionRangeFrom");
+  const toEl=document.getElementById("versionRangeTo");
+  let from=Number(fromEl?.value)||1;
+  let to=Number(toEl?.value)||u.scheduleVersions.length;
+  from=Math.max(1,Math.min(from,u.scheduleVersions.length));
+  to=Math.max(from,Math.min(to,u.scheduleVersions.length));
+  const candidateVersions=u.scheduleVersions.slice(from-1,to);
+  if(!candidateVersions.length)return toast("Invalid range","Choose a valid version range.");
+  const v=candidateVersions[Math.floor(Math.random()*candidateVersions.length)];
 
   u.versionRolls--;
   applyVersionToDay(v,dow);
@@ -967,7 +1016,7 @@ function rollScheduleVersion(){
   saveSoon();
   requestRender();
 
-  toast("🎲 Version rolled!",`${v.name} was randomly assigned to ${dayNames[dow]}. One dice roll was used.`);
+  toast("🎲 Version rolled!",`${v.name} (Version ${u.scheduleVersions.indexOf(v)+1}) was randomly assigned to ${dayNames[dow]}. Range: Version ${from}–${to}. One dice roll was used.`);
 }
 
 function renderWeekTable(){
