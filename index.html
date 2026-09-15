@@ -41,6 +41,30 @@
 .filterRow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .filterRow select{background:#080e1a;color:white;border:1px solid var(--line);padding:9px;border-radius:9px}
 .metricGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:12px}
+.historyCalendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px}
+.historyDow{font-size:10px;color:var(--muted);text-align:center;padding:5px}
+.historyDay{min-height:82px;background:#080e1a;border:1px solid var(--line);border-radius:10px;padding:8px;text-align:left;color:var(--text)}
+.historyDay:hover{border-color:#526485}
+.historyDay.muted{opacity:.35}
+.historyDay.today{box-shadow:inset 0 0 0 1px var(--cyan)}
+.historyDay.selected{border-color:var(--purple);background:#765cff18}
+.historyDayNum{font-weight:900}
+.historyDayStats{display:grid;gap:3px;margin-top:7px;font-size:10px;color:var(--muted)}
+.historyDayStats b{color:var(--text)}
+.historyEventList{display:grid;gap:8px}
+.historyEvent{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;background:#111c30aa;border:1px solid var(--line);border-radius:11px;padding:11px}
+.historyEventMain{min-width:0}
+.historyEventMain b{display:block}
+.historyEventMain small{display:block;color:var(--muted);margin-top:3px}
+.historyPositive{color:var(--green);font-weight:900;white-space:nowrap}
+.historyNegative{color:var(--red);font-weight:900;white-space:nowrap}
+.historyEmpty{padding:22px;text-align:center;color:var(--muted)}
+@media(max-width:760px){
+  .historyCalendar{gap:4px}
+  .historyDay{min-height:70px;padding:6px}
+  .historyDayStats{font-size:9px}
+}
+
 .miniMetric{background:#111c30aa;border:1px solid var(--line);border-radius:12px;padding:12px}
 .miniMetric b{font-size:20px;display:block}.miniMetric small{color:var(--muted)}
 .versionGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.versionCard{min-height:280px}.versionRows{display:grid;gap:7px;margin-top:12px}.versionRow{display:grid;grid-template-columns:34px 65px 1fr;gap:7px;align-items:center;border-bottom:1px solid var(--line);padding:6px 0}.versionNum{color:var(--muted);font-size:11px;text-align:center}.versionTime{font-size:11px;color:var(--gold);font-weight:800}.versionName{font-size:12px}.versionEditor{width:100%;overflow-x:auto}.versionEditor table{width:100%;border-collapse:separate;border-spacing:0;min-width:620px}.versionEditor th,.versionEditor td{padding:7px;border-bottom:1px solid var(--line);text-align:left}.versionEditor input{width:100%;background:#080e1a;color:white;border:1px solid var(--line);padding:8px;border-radius:8px}.versionEditor .removeRow{padding:7px 9px}.diceBox{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
@@ -48,6 +72,52 @@
 @media(max-width:760px){.versionGrid{grid-template-columns:1fr}}
 @media(max-width:1200px){.metricGrid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:760px){.metricGrid{grid-template-columns:repeat(2,1fr)}}
+
+.calendar-toolbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:16px;
+}
+.calendar-toolbar h3{margin:0;text-align:center;flex:1}
+
+/* LIFEQUEST_CALENDAR_CSS_REPAIR_V1 */
+.history-calendar{
+  display:grid;
+  grid-template-columns:repeat(7,minmax(0,1fr));
+  gap:6px;
+}
+.history-cal-head{
+  text-align:center;
+  font-weight:700;
+  padding:8px 4px;
+  opacity:.7;
+}
+.history-cal-day{
+  min-height:88px;
+  width:100%;
+  border:1px solid var(--border,#ddd);
+  border-radius:10px;
+  background:var(--card,#fff);
+  padding:8px;
+  text-align:left;
+  cursor:pointer;
+  font:inherit;
+  color:inherit;
+}
+.history-cal-day:hover{transform:translateY(-1px)}
+.history-cal-day.today{outline:2px solid currentColor}
+.history-cal-day.selected{box-shadow:0 0 0 2px currentColor inset}
+.history-cal-day.empty{visibility:hidden;pointer-events:none}
+.history-cal-number{font-weight:800;margin-bottom:5px}
+.history-net{font-weight:700;margin-top:3px}
+.history-detail-stats{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.history-detail-stats span{padding:6px 9px;border-radius:8px;background:rgba(127,127,127,.1)}
+.history-event{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border,#ddd)}
+.calendar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.calendar-toolbar h3{margin:0;text-align:center;flex:1}
+
 </style>
 </head>
 <body>
@@ -62,6 +132,7 @@
     <button onclick="nav('quests',this)">⚔️ Side Quests</button>
     <button onclick="nav('users',this)">👥 Users</button>
     <button onclick="nav('stats',this)">📈 Statistics</button>
+    <button onclick="nav('calendar',this)">📅 Calendar</button>
     <button onclick="nav('settings',this)">⚙️ Settings</button>
   </nav>
   <div class="accountMini"><strong id="miniName">Guest</strong><small id="miniPoints">0 ⭐</small></div>
@@ -170,6 +241,74 @@
     <div class="panelHead"><div><div class="panelTitle">Point Economy</div><div class="panelSub">Earned vs spent points.</div></div></div>
     <div class="progressTop"><span>Earned</span><span id="economyLabel">0</span></div>
     <div class="progress"><div class="bar" id="economyBar"></div></div>
+  </div>
+</section>
+
+
+
+<section id="calendar" class="section">
+  <div class="section-header">
+    <div>
+      <h2>📅 Calendar</h2>
+      <p class="muted">View your daily schedule, side quests, purchases, and point activity.</p>
+    </div>
+  </div>
+
+  <div class="history-grid">
+    <div class="card">
+      <div class="calendar-toolbar">
+        <button class="btn secondary" onclick="changeHistoryMonth(-1)">‹</button>
+        <h3 id="calendarMonthLabel">Calendar</h3>
+        <button class="btn secondary" onclick="changeHistoryMonth(1)">›</button>
+      </div>
+      <div id="calendarGrid" class="history-calendar"></div>
+    </div>
+
+    <div class="card" id="calendarDayDetail">
+      <h3>📌 Selected Day</h3>
+      <p class="muted">Click a date to see its activity.</p>
+    </div>
+  </div>
+</section>
+
+<section id="history" class="section">
+  <div class="top">
+    <div>
+      <div class="title">Activity History 🗓️</div>
+      <div class="sub">Review every day since you joined, including Point Shop purchases, completed schedules, side quests, and point changes.</div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="label">Days Tracked</div><div class="value" id="historyDays">0</div></div>
+    <div class="stat"><div class="label">Shop Purchases</div><div class="value" id="historyPurchases">0</div></div>
+    <div class="stat"><div class="label">Schedules Completed</div><div class="value" id="historySchedules">0</div></div>
+    <div class="stat"><div class="label">Side Quests Completed</div><div class="value" id="historyQuests">0</div></div>
+  </div>
+
+  <div class="panel" style="margin-bottom:15px">
+    <div class="panelHead">
+      <div>
+        <div class="panelTitle">Daily Calendar</div>
+        <div class="panelSub">Click any date to see exactly what happened that day.</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn" id="historyPrevMonth" type="button">‹</button>
+        <strong id="historyMonthLabel"></strong>
+        <button class="btn" id="historyNextMonth" type="button">›</button>
+      </div>
+    </div>
+    <div class="historyCalendar" id="historyCalendar"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panelHead">
+      <div>
+        <div class="panelTitle" id="historyDetailTitle">Select a date</div>
+        <div class="panelSub" id="historyDetailSub">Choose a calendar date to inspect the activity.</div>
+      </div>
+    </div>
+    <div id="historyDetail"></div>
   </div>
 </section>
 
@@ -366,6 +505,7 @@ function migrateSchedules(u){
   if(!u.weeklyVersionNames)u.weeklyVersionNames={};
   if(typeof u.versionRolls!=="number")u.versionRolls=0;
   if(!("lastPointDecayDay" in u))u.lastPointDecayDay=null;
+  if(!("historySelectedDate" in u))u.historySelectedDate=null;
   if(!Array.isArray(u.shop))u.shop=[];
   if(!u.shop.some(x=>x.special==="version_roll")){u.shop.push({id:crypto.randomUUID(),icon:"🎲",name:"Dice Roll Version",description:"Buy one dice roll to randomly choose a saved version for a selected day of the week.",price:100,special:"version_roll"});}
   if(typeof u.versionRolls!=="number")u.versionRolls=0;
@@ -459,6 +599,8 @@ function scheduleNextDecayCheck(){
     applyDailyPointDecay();
     requestRender();
     scheduleNextDecayCheck();
+document.getElementById("historyPrevMonth")?.addEventListener("click",()=>changeHistoryMonth(-1));
+document.getElementById("historyNextMonth")?.addEventListener("click",()=>changeHistoryMonth(1));
   },Math.max(1000,next-now));
 }
 
@@ -468,15 +610,16 @@ function scheduleNextDecayCheck(){
   V1 rebuilt every section and saved the entire database on every render.
   V2 updates shared dashboard values and renders only the visible section.
 */
-function nav(id,btn){
-  document.querySelectorAll(".section").forEach(x=>x.classList.remove("active"));
-  const section=document.getElementById(id);
-  if(section)section.classList.add("active");
+function nav(section, btn){
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  const target=document.getElementById(section);
+  if(target) target.classList.add('active');
 
-  document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("active"));
-  if(btn)btn.classList.add("active");
+  document.querySelectorAll('.nav button, .sidebar button, nav button').forEach(b => b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
 
-  requestRender();
+  if(section === 'history' && typeof renderHistory === 'function') renderHistory();
+  if(section === 'calendar' && typeof renderCalendarPage === 'function') renderCalendarPage();
 }
 
 function requestRender(){
@@ -524,6 +667,13 @@ function render(){
       break;
     case "stats":
       renderStats();
+      break;
+    case "history":
+      renderHistory();
+  renderCalendarPage();
+      break;
+    case "calendar":
+      renderCalendarPage();
       break;
     case "settings":
       break;
@@ -1034,6 +1184,217 @@ function switchUser(id){
   requestRender();
 }
 
+
+/* ---------- Activity History ---------- */
+
+function localDateKeyFromISO(iso){
+  const d=new Date(iso);
+  return dateKeyLocal(d);
+}
+
+function historyEventsByDate(){
+  const u=user(),events={};
+
+  const add=(date,event)=>{
+    if(!events[date])events[date]=[];
+    events[date].push(event);
+  };
+
+  // Point Shop purchases are stored separately and are always included.
+  (u.purchaseHistory||[]).forEach(x=>{
+    const date=localDateKeyFromISO(x.date);
+    add(date,{type:"purchase",title:x.name,detail:"Point Shop purchase",points:-Number(x.price||0),time:x.date});
+  });
+
+  // Activity log contains schedule completions, side quests, exercises and decay.
+  (u.activityLog||[]).forEach(x=>{
+    const date=localDateKeyFromISO(x.date);
+    const type=x.type||"activity";
+    add(date,{
+      type,
+      title:x.name||type,
+      detail:
+        type==="schedule"?"Schedule completed":
+        type==="quest"?"Side quest completed":
+        type==="exercise"?"Exercise quest completed":
+        type==="decay"?"Daily 1% point decay":
+        "Activity",
+      points:Number(x.points||0),
+      time:x.date
+    });
+  });
+
+  // Also reconstruct schedule completions from completionHistory so older
+  // data remains visible even if an older version did not log activity events.
+  const loggedScheduleKeys=new Set(
+    (u.activityLog||[]).filter(x=>x.type==="schedule")
+      .map(x=>`${localDateKeyFromISO(x.date)}|${x.name}`)
+  );
+
+  Object.entries(u.completionHistory||{}).forEach(([date,completed])=>{
+    if(!completed)return;
+    const d=new Date(date+"T12:00:00");
+    const schedules=getSchedulesForDate(u,d);
+    schedules.forEach(t=>{
+      if(completed[t.id]){
+        const key=`${date}|${t.name}`;
+        if(!loggedScheduleKeys.has(key)){
+          add(date,{type:"schedule",title:t.name,detail:"Schedule completed",points:Number(t.reward||0),time:date+"T12:00:00"});
+        }
+      }
+    });
+  });
+
+  Object.values(events).forEach(list=>list.sort((a,b)=>
+    new Date(a.time||0)-new Date(b.time||0)
+  ));
+  return events;
+}
+
+function dateRangeForHistory(){
+  const u=user();
+  const start=new Date(u.createdAt);
+  start.setHours(0,0,0,0);
+  const end=new Date();
+  end.setHours(0,0,0,0);
+  return {start,end};
+}
+
+function historySummaryForDate(date,events){
+  const list=events[date]||[];
+  const purchases=list.filter(x=>x.type==="purchase").length;
+  const schedules=list.filter(x=>x.type==="schedule").length;
+  const quests=list.filter(x=>x.type==="quest"||x.type==="exercise").length;
+  const pointDelta=list.reduce((sum,x)=>sum+(Number(x.points)||0),0);
+  return {purchases,schedules,quests,pointDelta};
+}
+
+
+function renderCalendarPage(){
+  if(typeof historyEventsByDate !== 'function') return;
+  window.lifeQuestHistoryEvents = historyEventsByDate();
+  if(typeof renderHistoryCalendar === 'function') renderHistoryCalendar('calendarGrid','calendarMonthLabel');
+  if(typeof renderHistoryDetail === 'function') renderHistoryDetail('calendarDayDetail', window.lifeQuestHistoryEvents);
+}
+
+function renderHistory(){
+  const u=user(),events=historyEventsByDate();
+  if(!u)return;
+
+  const range=dateRangeForHistory();
+  const days=Math.floor((range.end-range.start)/86400000)+1;
+
+  document.getElementById("historyDays").textContent=Math.max(0,days);
+  document.getElementById("historyPurchases").textContent=(u.purchaseHistory||[]).length;
+  document.getElementById("historySchedules").textContent=(u.activityLog||[]).filter(x=>x.type==="schedule").length;
+  document.getElementById("historyQuests").textContent=(u.activityLog||[]).filter(x=>x.type==="quest"||x.type==="exercise").length;
+
+  renderHistoryCalendar(events,range);
+
+  let selected=u.historySelectedDate;
+  if(!selected){
+    selected=day();
+    u.historySelectedDate=selected;
+  }
+  renderHistoryDetail(selected,events);
+}
+
+function renderHistoryCalendar(gridId="historyCalendar",labelId="historyMonthLabel"){
+  const box=document.getElementById("historyCalendar");
+  const label=document.getElementById(labelId);
+  if(!box||!label)return;
+
+  const events=window.lifeQuestHistoryEvents||historyEventsByDate();
+  const range=dateRangeForHistory();
+
+  if(!window.lifeQuestHistoryMonth){
+    const today=new Date();
+    window.lifeQuestHistoryMonth={year:today.getFullYear(),month:today.getMonth()};
+  }
+
+  const view=new Date(window.lifeQuestHistoryMonth.year,window.lifeQuestHistoryMonth.month,1);
+  label.textContent=view.toLocaleDateString(undefined,{month:"long",year:"numeric"});
+
+  const days=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  let html=days.map(x=>`<div class="historyDow">${x}</div>`).join("");
+
+  const first=view.getDay();
+  const count=new Date(view.getFullYear(),view.getMonth()+1,0).getDate();
+
+  for(let i=0;i<first;i++)html+=`<div></div>`;
+
+  for(let n=1;n<=count;n++){
+    const key=`${view.getFullYear()}-${String(view.getMonth()+1).padStart(2,"0")}-${String(n).padStart(2,"0")}`;
+    const d=new Date(view.getFullYear(),view.getMonth(),n);
+    const inRange=d>=range.start&&d<=range.end;
+    const s=historySummaryForDate(key,events);
+    const selected=user().historySelectedDate===key;
+    const today=key===day();
+
+    html+=`<button type="button" class="historyDay ${inRange?"":"muted"} ${today?"today":""} ${selected?"selected":""}" data-history-date="${key}">
+      <div class="historyDayNum">${n}</div>
+      ${inRange?`<div class="historyDayStats">
+        <span>📋 <b>${s.schedules}</b> schedule</span>
+        <span>⚔️ <b>${s.quests}</b> quest</span>
+        <span>🛒 <b>${s.purchases}</b> purchase</span>
+        ${s.pointDelta?`<span>${s.pointDelta>0?"⭐":"📉"} <b>${s.pointDelta>0?"+":""}${s.pointDelta.toLocaleString()}</b></span>`:""}
+      </div>`:""}
+    </button>`;
+  }
+
+  box.innerHTML=html;
+  box.querySelectorAll("[data-history-date]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const key=btn.dataset.historyDate;
+      user().historySelectedDate=key;
+      renderCalendarPage();
+    });
+  });
+}
+
+function renderHistoryDetail(containerId="historyDetail",events=historyEventsByDate()){
+  const title=document.getElementById("historyDetailTitle");
+  const sub=document.getElementById("historyDetailSub");
+  const box=document.getElementById(containerId);
+  if(!title||!sub||!box)return;
+
+  const list=events[date]||[];
+  const s=historySummaryForDate(date,events);
+
+  const parsed=new Date(date+"T12:00:00");
+  title.textContent=parsed.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+  sub.textContent=`${s.schedules} schedule completed · ${s.quests} side quest completed · ${s.purchases} Point Shop purchase${s.purchases===1?"":"s"} · point change ${s.pointDelta>=0?"+":""}${s.pointDelta.toLocaleString()}`;
+
+  if(!list.length){
+    box.innerHTML='<div class="historyEmpty">No recorded activity on this date.</div>';
+    return;
+  }
+
+  box.innerHTML=`<div class="historyEventList">${list.map(x=>{
+    const positive=x.points>0,negative=x.points<0;
+    const icon=x.type==="purchase"?"🛒":x.type==="schedule"?"📋":(x.type==="quest"||x.type==="exercise")?"⚔️":x.type==="decay"?"📉":"•";
+    const pointText=x.points?`${x.points>0?"+":""}${x.points.toLocaleString()} ⭐`:"";
+    const cls=positive?"historyPositive":negative?"historyNegative":"";
+    return `<div class="historyEvent">
+      <div class="historyEventMain">
+        <b>${icon} ${esc(x.title)}</b>
+        <small>${esc(x.detail)}</small>
+      </div>
+      <span class="${cls}">${pointText}</span>
+    </div>`;
+  }).join("")}</div>`;
+}
+
+function changeHistoryMonth(delta){
+  if(!window.lifeQuestHistoryMonth){
+    const t=new Date();
+    window.lifeQuestHistoryMonth={year:t.getFullYear(),month:t.getMonth()};
+  }
+  const d=new Date(window.lifeQuestHistoryMonth.year,window.lifeQuestHistoryMonth.month+delta,1);
+  window.lifeQuestHistoryMonth={year:d.getFullYear(),month:d.getMonth()};
+  renderHistory();
+}
+
 /* ---------- Statistics ---------- */
 
 function startOfWeek(dt){
@@ -1539,6 +1900,141 @@ document.addEventListener("visibilitychange",()=>{
 applyDailyPointDecay();
 render();
 scheduleNextDecayCheck();
+
+/* LIFEQUEST_CALENDAR_REPAIR_V1 */
+(function(){
+  function pad(n){ return String(n).padStart(2,'0'); }
+  function key(y,m,d){ return y+'-'+pad(m+1)+'-'+pad(d); }
+  function safeUser(){
+    try { return typeof user === 'function' ? user() : null; } catch(e){ return null; }
+  }
+  function allHistoryEvents(){
+    const u=safeUser()||{};
+    const events=[];
+    const push=(date,type,name,points,meta)=>{
+      if(!date) return;
+      events.push({date:String(date).slice(0,10),type:type||'activity',name:name||'Activity',points:Number(points)||0,meta:meta||{}});
+    };
+    (Array.isArray(u.purchaseHistory)?u.purchaseHistory:[]).forEach(p=>{
+      push(p.date||p.createdAt||p.timestamp,'purchase',p.name||p.item||'Point Shop purchase',-(Number(p.price)||0),p);
+    });
+    (Array.isArray(u.activityLog)?u.activityLog:[]).forEach(a=>{
+      const date=a.date||a.createdAt||a.timestamp;
+      let pts=Number(a.points);
+      if(!Number.isFinite(pts)) pts=Number(a.amount)||0;
+      push(date,a.type||'activity',a.name||a.title||'Activity',pts,a);
+    });
+    (Array.isArray(u.completionHistory)?u.completionHistory:[]).forEach(c=>{
+      const date=c.date||c.day||c.completedAt||c.timestamp;
+      const count=Number(c.count);
+      if(Number.isFinite(count) && count>0){
+        push(date,'schedule','Schedule completed',0,c);
+      } else if(c.completed===true || c.taskId || c.task){
+        push(date,'schedule',c.name||c.task||'Schedule completed',Number(c.points)||0,c);
+      }
+    });
+    return events;
+  }
+
+  window.LifeQuestCalendarRepair={
+    eventsByDate:function(){
+      const map={};
+      allHistoryEvents().forEach(e=>{
+        if(!map[e.date]) map[e.date]=[];
+        map[e.date].push(e);
+      });
+      return map;
+    }
+  };
+
+  // Re-render the dedicated Calendar page independently of older history code.
+  window.renderCalendarPage=function(){
+    const grid=document.getElementById('calendarGrid');
+    const label=document.getElementById('calendarMonthLabel');
+    const detail=document.getElementById('calendarDayDetail');
+    if(!grid || !label || !detail) return;
+
+    const now=new Date();
+    if(!window.lifeQuestCalendarMonth) window.lifeQuestCalendarMonth={y:now.getFullYear(),m:now.getMonth()};
+    const state=window.lifeQuestCalendarMonth;
+    const first=new Date(state.y,state.m,1);
+    const last=new Date(state.y,state.m+1,0);
+    const startDay=first.getDay();
+    const days=last.getDate();
+    const events=LifeQuestCalendarRepair.eventsByDate();
+
+    label.textContent=first.toLocaleDateString(undefined,{month:'long',year:'numeric'});
+
+    const weekdays=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    let out=weekdays.map(d=>'<div class="history-cal-head">'+d+'</div>').join('');
+
+    for(let i=0;i<startDay;i++) out+='<div class="history-cal-day empty"></div>';
+
+    for(let d=1;d<=days;d++){
+      const k=key(state.y,state.m,d);
+      const dayEvents=events[k]||[];
+      const schedules=dayEvents.filter(e=>e.type==='schedule').length;
+      const quests=dayEvents.filter(e=>e.type==='quest'||e.type==='exercise').length;
+      const purchases=dayEvents.filter(e=>e.type==='purchase').length;
+      const net=dayEvents.reduce((s,e)=>s+(Number(e.points)||0),0);
+      const selected=(safeUser()||{}).historySelectedDate===k;
+      const cls='history-cal-day'+(selected?' selected':'')+(k===key(now.getFullYear(),now.getMonth(),now.getDate())?' today':'');
+      out+='<button type="button" class="'+cls+'" onclick="selectCalendarDate(\''+k+'\')">'+
+        '<div class="history-cal-number">'+d+'</div>'+
+        (schedules?'<div>📋 '+schedules+'</div>':'')+
+        (quests?'<div>⚔️ '+quests+'</div>':'')+
+        (purchases?'<div>🛒 '+purchases+'</div>':'')+
+        (net?'<div class="history-net">'+(net>0?'+':'')+net+' pts</div>':'')+
+        '</button>';
+    }
+    grid.innerHTML=out;
+
+    const selectedDate=(safeUser()||{}).historySelectedDate || key(now.getFullYear(),now.getMonth(),now.getDate());
+    renderCalendarDayDetail(selectedDate,events,detail);
+  };
+
+  window.selectCalendarDate=function(date){
+    const u=safeUser();
+    if(u) u.historySelectedDate=date;
+    try { if(typeof save==='function') save(); } catch(e){}
+    renderCalendarPage();
+  };
+
+  window.changeHistoryMonth=function(delta){
+    const now=new Date();
+    if(!window.lifeQuestCalendarMonth) window.lifeQuestCalendarMonth={y:now.getFullYear(),m:now.getMonth()};
+    window.lifeQuestCalendarMonth.m+=Number(delta)||0;
+    const d=new Date(window.lifeQuestCalendarMonth.y,window.lifeQuestCalendarMonth.m,1);
+    window.lifeQuestCalendarMonth={y:d.getFullYear(),m:d.getMonth()};
+    renderCalendarPage();
+  };
+
+  function renderCalendarDayDetail(date,events,box){
+    const list=events[date]||[];
+    const total=list.reduce((s,e)=>s+(Number(e.points)||0),0);
+    const scheduleCount=list.filter(e=>e.type==='schedule').length;
+    const questCount=list.filter(e=>e.type==='quest'||e.type==='exercise').length;
+    const purchaseCount=list.filter(e=>e.type==='purchase').length;
+    let h='<h3>📌 '+date+'</h3>'+
+      '<div class="history-detail-stats">'+
+      '<span>📋 '+scheduleCount+' schedules</span>'+
+      '<span>⚔️ '+questCount+' quests</span>'+
+      '<span>🛒 '+purchaseCount+' purchases</span>'+
+      '<span>💰 '+(total>=0?'+':'')+total+' pts</span></div>';
+    if(!list.length){ box.innerHTML=h+'<p class="muted">No recorded activity for this date.</p>'; return; }
+    h+='<div class="history-events">';
+    list.sort((a,b)=>String(a.type).localeCompare(String(b.type))).forEach(e=>{
+      h+='<div class="history-event"><strong>'+escapeHtml(e.name)+'</strong><span>'+(e.points>=0?'+':'')+e.points+' pts</span></div>';
+    });
+    h+='</div>';
+    box.innerHTML=h;
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});
+  }
+})();
+
 </script>
 </body>
 </html>
