@@ -81,43 +81,6 @@
   margin-bottom:16px;
 }
 .calendar-toolbar h3{margin:0;text-align:center;flex:1}
-
-/* LIFEQUEST_CALENDAR_CSS_REPAIR_V1 */
-.history-calendar{
-  display:grid;
-  grid-template-columns:repeat(7,minmax(0,1fr));
-  gap:6px;
-}
-.history-cal-head{
-  text-align:center;
-  font-weight:700;
-  padding:8px 4px;
-  opacity:.7;
-}
-.history-cal-day{
-  min-height:88px;
-  width:100%;
-  border:1px solid var(--border,#ddd);
-  border-radius:10px;
-  background:var(--card,#fff);
-  padding:8px;
-  text-align:left;
-  cursor:pointer;
-  font:inherit;
-  color:inherit;
-}
-.history-cal-day:hover{transform:translateY(-1px)}
-.history-cal-day.today{outline:2px solid currentColor}
-.history-cal-day.selected{box-shadow:0 0 0 2px currentColor inset}
-.history-cal-day.empty{visibility:hidden;pointer-events:none}
-.history-cal-number{font-weight:800;margin-bottom:5px}
-.history-net{font-weight:700;margin-top:3px}
-.history-detail-stats{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
-.history-detail-stats span{padding:6px 9px;border-radius:8px;background:rgba(127,127,127,.1)}
-.history-event{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border,#ddd)}
-.calendar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
-.calendar-toolbar h3{margin:0;text-align:center;flex:1}
-
 </style>
 </head>
 <body>
@@ -496,6 +459,7 @@ function migrateSchedules(u){
   if(!u.completedToday)u.completedToday={};
   if(!u.activityLog)u.activityLog=[];
   if(!u.completedQuests)u.completedQuests={};
+  if(!u.dailyQuestClaims||typeof u.dailyQuestClaims!=="object"||Array.isArray(u.dailyQuestClaims))u.dailyQuestClaims={};
   if(!u.purchaseHistory)u.purchaseHistory=[];
   if(!u.backups)u.backups=[];
   if(!Array.isArray(u.scheduleVersions))u.scheduleVersions=[];
@@ -594,14 +558,40 @@ function scheduleNextDecayCheck(){
   const now=new Date();
   const next=new Date(now);
   next.setHours(24,0,1,0);
-
   window.lifeQuestDecayTimer=setTimeout(()=>{
     applyDailyPointDecay();
     requestRender();
     scheduleNextDecayCheck();
-document.getElementById("historyPrevMonth")?.addEventListener("click",()=>changeHistoryMonth(-1));
-document.getElementById("historyNextMonth")?.addEventListener("click",()=>changeHistoryMonth(1));
   },Math.max(1000,next-now));
+}
+
+/* ---------- Daily Side Quest Rules ---------- */
+function dailyClaimKey(kind,id,date=day()){return `${date}|${kind}|${id}`;}
+function isDailyQuestClaimed(kind,id,date=day()){
+  const u=user();
+  if(!u)return false;
+  if(!u.dailyQuestClaims||typeof u.dailyQuestClaims!=="object"||Array.isArray(u.dailyQuestClaims))u.dailyQuestClaims={};
+  return !!u.dailyQuestClaims[dailyClaimKey(kind,id,date)];
+}
+function markDailyQuestClaimed(kind,id,date=day()){
+  const u=user();
+  if(!u)return false;
+  if(!u.dailyQuestClaims||typeof u.dailyQuestClaims!=="object"||Array.isArray(u.dailyQuestClaims))u.dailyQuestClaims={};
+  const key=dailyClaimKey(kind,id,date);
+  if(u.dailyQuestClaims[key])return false;
+  u.dailyQuestClaims[key]=new Date().toISOString();
+  return true;
+}
+function cleanupDailyQuestClaims(){
+  const u=user();
+  if(!u||!u.dailyQuestClaims)return;
+  const cutoff=new Date();
+  cutoff.setDate(cutoff.getDate()-180);
+  const cutoffKey=dateKeyLocal(cutoff);
+  Object.keys(u.dailyQuestClaims).forEach(k=>{
+    const d=k.slice(0,10);
+    if(/^\d{4}-\d{2}-\d{2}$/.test(d)&&d<cutoffKey)delete u.dailyQuestClaims[k];
+  });
 }
 
 /* ---------- Navigation / Rendering ---------- */
@@ -610,16 +600,15 @@ document.getElementById("historyNextMonth")?.addEventListener("click",()=>change
   V1 rebuilt every section and saved the entire database on every render.
   V2 updates shared dashboard values and renders only the visible section.
 */
-function nav(section, btn){
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  const target=document.getElementById(section);
-  if(target) target.classList.add('active');
+function nav(id,btn){
+  document.querySelectorAll(".section").forEach(x=>x.classList.remove("active"));
+  const section=document.getElementById(id);
+  if(section)section.classList.add("active");
 
-  document.querySelectorAll('.nav button, .sidebar button, nav button').forEach(b => b.classList.remove('active'));
-  if(btn) btn.classList.add('active');
+  document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("active"));
+  if(btn)btn.classList.add("active");
 
-  if(section === 'history' && typeof renderHistory === 'function') renderHistory();
-  if(section === 'calendar' && typeof renderCalendarPage === 'function') renderCalendarPage();
+  requestRender();
 }
 
 function requestRender(){
@@ -637,6 +626,10 @@ function render(){
   applyDailyPointDecay();
 
   if(!u.completedToday[d])u.completedToday[d]={};
+  if(u._dailyClaimCleanupDay!==d){
+    cleanupDailyQuestClaims();
+    u._dailyClaimCleanupDay=d;
+  }
 
   updateDashboard();
   updateBackupCount();
@@ -670,7 +663,6 @@ function render(){
       break;
     case "history":
       renderHistory();
-  renderCalendarPage();
       break;
     case "calendar":
       renderCalendarPage();
@@ -1081,62 +1073,59 @@ function buy(id){
 function renderQuests(){
   const u=user(),box=document.getElementById("questArea");
   if(!box)return;
-
   const groups={};
   u.quests.forEach(q=>(groups[q.category]??=[]).push(q));
-
   let out="";
   for(const [cat,qs] of Object.entries(groups)){
     out+=`<div class="questCategory"><b>${esc(cat)}</b><span>${qs.length} quests</span></div>`;
-
     qs.forEach(q=>{
       if(q.exerciseGroup){
         out+=`<div class="card">
-          <div class="questCategory"><b>${esc(q.icon)} ${esc(q.name)}</b><span>+1 point each</span></div>
+          <div class="questCategory"><b>${esc(q.icon)} ${esc(q.name)}</b><span>Daily • once per exercise</span></div>
           <div class="desc">${esc(q.description)}</div>
           <div class="exerciseList">
-            ${u.exercises.map(e=>`<div class="exercise">
-              <div><b>${esc(e.name)}</b><br><small>+${e.points} ⭐</small></div>
-              <button onclick="exercise('${e.id}')">Complete</button>
-            </div>`).join("")}
+            ${u.exercises.map(e=>{
+              const claimed=isDailyQuestClaimed("exercise",e.id);
+              return `<div class="exercise">
+                <div><b>${esc(e.name)}</b><br><small>+${e.points} ⭐</small></div>
+                <button class="btn primary" ${claimed?"disabled":""} onclick="exercise('${e.id}')">${claimed?"✓ Completed Today":"Complete"}</button>
+              </div>`;
+            }).join("")}
           </div>
         </div>`;
       }else{
-        const done=!!u.completedQuests[q.id];
+        const claimed=isDailyQuestClaimed("quest",q.id);
         out+=`<div class="card" style="margin-bottom:9px">
           <div class="cardBottom" style="margin-top:0">
-            <div>
-              <div><b>${esc(q.icon)} ${esc(q.name)}</b></div>
-              <div class="desc">${esc(q.description)}</div>
-            </div>
+            <div><div><b>${esc(q.icon)} ${esc(q.name)}</b></div><div class="desc">${esc(q.description)}</div></div>
             <span class="price">+${q.reward.toLocaleString()} ⭐</span>
           </div>
           <div class="cardBottom">
-            <span class="badge">${done?"✓ Claimed":"Available"}</span>
+            <span class="badge">${claimed?"✓ Claimed Today":"Available Today"}</span>
             <span>
               <button class="btn" onclick="questModal('${q.id}')">✏️</button>
               <button class="btn danger" onclick="deleteQuest('${q.id}')">×</button>
-              <button class="btn primary" ${done?"disabled":""} onclick="completeQuest('${q.id}')">${done?"Claimed":"Complete"}</button>
+              <button class="btn primary" ${claimed?"disabled":""} onclick="completeQuest('${q.id}')">${claimed?"Claimed Today":"Complete"}</button>
             </span>
           </div>
         </div>`;
       }
     });
   }
-
   box.innerHTML=out||'<div class="empty">No side quests.</div>';
 }
 
 function exercise(id){
   const u=user(),e=u.exercises.find(x=>x.id===id);
   if(!e)return;
-
+  if(isDailyQuestClaimed("exercise",id)){
+    toast("Already completed today","This exercise is available again tomorrow.");
+    return;
+  }
+  if(!markDailyQuestClaimed("exercise",id))return;
   u.points+=e.points;
   u.lifetimeEarned+=e.points;
-  u.activityLog.push({
-    type:"exercise",name:e.name,date:new Date().toISOString(),points:e.points
-  });
-
+  u.activityLog.push({type:"exercise",name:e.name,date:new Date().toISOString(),points:e.points});
   saveSoon();
   toast("Exercise quest complete 💪",`+${e.points} point`);
   requestRender();
@@ -1144,15 +1133,15 @@ function exercise(id){
 
 function completeQuest(id){
   const u=user(),q=u.quests.find(x=>x.id===id);
-  if(!q||u.completedQuests[id])return;
-
-  u.completedQuests[id]=true;
+  if(!q)return;
+  if(isDailyQuestClaimed("quest",id)){
+    toast("Already completed today","This side quest is available again tomorrow.");
+    return;
+  }
+  if(!markDailyQuestClaimed("quest",id))return;
   u.points+=q.reward;
   u.lifetimeEarned+=q.reward;
-  u.activityLog.push({
-    type:"quest",name:q.name,date:new Date().toISOString(),points:q.reward
-  });
-
+  u.activityLog.push({type:"quest",name:q.name,date:new Date().toISOString(),points:q.reward});
   saveSoon();
   toast("Quest complete ⚔️",`+${q.reward.toLocaleString()} points`);
   requestRender();
@@ -1194,205 +1183,150 @@ function localDateKeyFromISO(iso){
 
 function historyEventsByDate(){
   const u=user(),events={};
-
+  if(!u)return events;
   const add=(date,event)=>{
-    if(!events[date])events[date]=[];
-    events[date].push(event);
+    const key=dateKeyLocal(date);
+    if(!key)return;
+    (events[key]??=[]).push(event);
   };
 
-  // Point Shop purchases are stored separately and are always included.
-  (u.purchaseHistory||[]).forEach(x=>{
-    const date=localDateKeyFromISO(x.date);
-    add(date,{type:"purchase",title:x.name,detail:"Point Shop purchase",points:-Number(x.price||0),time:x.date});
-  });
+  (u.purchaseHistory||[]).forEach(x=>add(x.date,{
+    type:"purchase",title:x.name||"Point Shop purchase",
+    detail:"Point Shop purchase",points:-Number(x.price||0),time:x.date
+  }));
 
-  // Activity log contains schedule completions, side quests, exercises and decay.
-  (u.activityLog||[]).forEach(x=>{
-    const date=localDateKeyFromISO(x.date);
-    const type=x.type||"activity";
-    add(date,{
-      type,
-      title:x.name||type,
-      detail:
-        type==="schedule"?"Schedule completed":
-        type==="quest"?"Side quest completed":
-        type==="exercise"?"Exercise quest completed":
-        type==="decay"?"Daily 1% point decay":
-        "Activity",
-      points:Number(x.points||0),
-      time:x.date
-    });
-  });
+  (u.activityLog||[]).forEach(x=>add(x.date,{
+    type:x.type||"activity",title:x.name||x.type||"Activity",
+    detail:x.type==="schedule"?"Schedule completed":
+      x.type==="quest"?"Side quest completed":
+      x.type==="exercise"?"Exercise completed":
+      x.type==="decay"?"Daily 1% point decay":
+      x.type==="reward"?"Point Shop purchase":"Activity",
+    points:Number(x.points||0),time:x.date
+  }));
 
-  // Also reconstruct schedule completions from completionHistory so older
-  // data remains visible even if an older version did not log activity events.
-  const loggedScheduleKeys=new Set(
-    (u.activityLog||[]).filter(x=>x.type==="schedule")
-      .map(x=>`${localDateKeyFromISO(x.date)}|${x.name}`)
-  );
+  // Legacy schedule records only: add them when the new activity log has no
+  // matching event, so history is not double-counted.
+  const logged=new Set((u.activityLog||[]).filter(x=>x.type==="schedule")
+    .map(x=>`${dateKeyLocal(x.date)}|${x.name}`));
 
   Object.entries(u.completionHistory||{}).forEach(([date,completed])=>{
-    if(!completed)return;
-    const d=new Date(date+"T12:00:00");
-    const schedules=getSchedulesForDate(u,d);
+    if(!completed||typeof completed!=="object")return;
+    const schedules=getSchedulesForDate(u,new Date(date+"T12:00:00"));
     schedules.forEach(t=>{
-      if(completed[t.id]){
-        const key=`${date}|${t.name}`;
-        if(!loggedScheduleKeys.has(key)){
-          add(date,{type:"schedule",title:t.name,detail:"Schedule completed",points:Number(t.reward||0),time:date+"T12:00:00"});
-        }
-      }
+      if(!completed[t.id])return;
+      const key=`${date}|${t.name}`;
+      if(!logged.has(key))add(date,{
+        type:"schedule",title:t.name,detail:"Schedule completed (legacy history)",
+        points:Number(t.reward||0),time:date+"T12:00:00"
+      });
     });
   });
 
-  Object.values(events).forEach(list=>list.sort((a,b)=>
-    new Date(a.time||0)-new Date(b.time||0)
-  ));
+  Object.values(events).forEach(list=>list.sort((a,b)=>new Date(a.time||0)-new Date(b.time||0)));
   return events;
 }
 
 function dateRangeForHistory(){
   const u=user();
-  const start=new Date(u.createdAt);
-  start.setHours(0,0,0,0);
-  const end=new Date();
-  end.setHours(0,0,0,0);
+  const start=new Date(u.createdAt);start.setHours(0,0,0,0);
+  const end=new Date();end.setHours(0,0,0,0);
   return {start,end};
 }
 
 function historySummaryForDate(date,events){
   const list=events[date]||[];
-  const purchases=list.filter(x=>x.type==="purchase").length;
-  const schedules=list.filter(x=>x.type==="schedule").length;
-  const quests=list.filter(x=>x.type==="quest"||x.type==="exercise").length;
-  const pointDelta=list.reduce((sum,x)=>sum+(Number(x.points)||0),0);
-  return {purchases,schedules,quests,pointDelta};
+  return {
+    purchases:list.filter(x=>x.type==="purchase"||x.type==="reward").length,
+    schedules:list.filter(x=>x.type==="schedule").length,
+    quests:list.filter(x=>x.type==="quest"||x.type==="exercise").length,
+    pointDelta:list.reduce((sum,x)=>sum+(Number(x.points)||0),0)
+  };
 }
 
-
-function renderCalendarPage(){
-  if(typeof historyEventsByDate !== 'function') return;
-  window.lifeQuestHistoryEvents = historyEventsByDate();
-  if(typeof renderHistoryCalendar === 'function') renderHistoryCalendar('calendarGrid','calendarMonthLabel');
-  if(typeof renderHistoryDetail === 'function') renderHistoryDetail('calendarDayDetail', window.lifeQuestHistoryEvents);
+function renderHistoryDetail(date,events,containerId="historyDetail"){
+  const box=document.getElementById(containerId);
+  const title=containerId==="historyDetail"?document.getElementById("historyDetailTitle"):null;
+  const sub=containerId==="historyDetail"?document.getElementById("historyDetailSub"):null;
+  if(!box)return;
+  const list=events[date]||[];
+  const s=historySummaryForDate(date,events);
+  const parsed=new Date(date+"T12:00:00");
+  if(title)title.textContent=parsed.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+  if(sub)sub.textContent=`${s.schedules} schedule completed · ${s.quests} side quest completed · ${s.purchases} Point Shop purchase${s.purchases===1?"":"s"} · point change ${s.pointDelta>=0?"+":""}${s.pointDelta.toLocaleString()}`;
+  if(!list.length){box.innerHTML='<div class="historyEmpty">No recorded activity on this date.</div>';return;}
+  box.innerHTML=`<div class="historyEventList">${list.map(x=>{
+    const icon=x.type==="purchase"||x.type==="reward"?"🛒":x.type==="schedule"?"📋":(x.type==="quest"||x.type==="exercise")?"⚔️":x.type==="decay"?"📉":"•";
+    const pointText=x.points?`${x.points>0?"+":""}${x.points.toLocaleString()} ⭐`:"";
+    const cls=x.points>0?"historyPositive":x.points<0?"historyNegative":"";
+    return `<div class="historyEvent"><div class="historyEventMain"><b>${icon} ${esc(x.title)}</b><small>${esc(x.detail)}</small></div><span class="${cls}">${pointText}</span></div>`;
+  }).join("")}</div>`;
 }
 
-function renderHistory(){
-  const u=user(),events=historyEventsByDate();
-  if(!u)return;
-
-  const range=dateRangeForHistory();
-  const days=Math.floor((range.end-range.start)/86400000)+1;
-
-  document.getElementById("historyDays").textContent=Math.max(0,days);
-  document.getElementById("historyPurchases").textContent=(u.purchaseHistory||[]).length;
-  document.getElementById("historySchedules").textContent=(u.activityLog||[]).filter(x=>x.type==="schedule").length;
-  document.getElementById("historyQuests").textContent=(u.activityLog||[]).filter(x=>x.type==="quest"||x.type==="exercise").length;
-
-  renderHistoryCalendar(events,range);
-
-  let selected=u.historySelectedDate;
-  if(!selected){
-    selected=day();
-    u.historySelectedDate=selected;
-  }
-  renderHistoryDetail(selected,events);
-}
-
-function renderHistoryCalendar(gridId="historyCalendar",labelId="historyMonthLabel"){
-  const box=document.getElementById("historyCalendar");
-  const label=document.getElementById(labelId);
+function renderHistoryCalendar(events,range,gridId="historyCalendar",labelId="historyMonthLabel"){
+  const box=document.getElementById(gridId),label=document.getElementById(labelId);
   if(!box||!label)return;
-
-  const events=window.lifeQuestHistoryEvents||historyEventsByDate();
-  const range=dateRangeForHistory();
-
   if(!window.lifeQuestHistoryMonth){
-    const today=new Date();
-    window.lifeQuestHistoryMonth={year:today.getFullYear(),month:today.getMonth()};
+    const t=new Date();window.lifeQuestHistoryMonth={year:t.getFullYear(),month:t.getMonth()};
   }
-
   const view=new Date(window.lifeQuestHistoryMonth.year,window.lifeQuestHistoryMonth.month,1);
   label.textContent=view.toLocaleDateString(undefined,{month:"long",year:"numeric"});
-
   const days=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-  let html=days.map(x=>`<div class="historyDow">${x}</div>`).join("");
-
-  const first=view.getDay();
+  let out=days.map(x=>`<div class="historyDow">${x}</div>`).join("");
+  for(let i=0;i<view.getDay();i++)out+="<div></div>";
   const count=new Date(view.getFullYear(),view.getMonth()+1,0).getDate();
-
-  for(let i=0;i<first;i++)html+=`<div></div>`;
-
+  const u=user(),selected=u.historySelectedDate||day(),today=day();
   for(let n=1;n<=count;n++){
     const key=`${view.getFullYear()}-${String(view.getMonth()+1).padStart(2,"0")}-${String(n).padStart(2,"0")}`;
-    const d=new Date(view.getFullYear(),view.getMonth(),n);
-    const inRange=d>=range.start&&d<=range.end;
+    const d=new Date(view.getFullYear(),view.getMonth(),n),inRange=d>=range.start&&d<=range.end;
     const s=historySummaryForDate(key,events);
-    const selected=user().historySelectedDate===key;
-    const today=key===day();
-
-    html+=`<button type="button" class="historyDay ${inRange?"":"muted"} ${today?"today":""} ${selected?"selected":""}" data-history-date="${key}">
+    out+=`<button type="button" class="historyDay ${inRange?"":"muted"} ${key===today?"today":""} ${key===selected?"selected":""}" data-history-date="${key}">
       <div class="historyDayNum">${n}</div>
       ${inRange?`<div class="historyDayStats">
-        <span>📋 <b>${s.schedules}</b> schedule</span>
-        <span>⚔️ <b>${s.quests}</b> quest</span>
-        <span>🛒 <b>${s.purchases}</b> purchase</span>
+        ${s.schedules?`<span>📋 <b>${s.schedules}</b> schedule${s.schedules===1?"":"s"}</span>`:""}
+        ${s.quests?`<span>⚔️ <b>${s.quests}</b> quest${s.quests===1?"":"s"}</span>`:""}
+        ${s.purchases?`<span>🛒 <b>${s.purchases}</b> purchase${s.purchases===1?"":"s"}</span>`:""}
         ${s.pointDelta?`<span>${s.pointDelta>0?"⭐":"📉"} <b>${s.pointDelta>0?"+":""}${s.pointDelta.toLocaleString()}</b></span>`:""}
       </div>`:""}
     </button>`;
   }
-
-  box.innerHTML=html;
-  box.querySelectorAll("[data-history-date]").forEach(btn=>{
-    btn.addEventListener("click",()=>{
-      const key=btn.dataset.historyDate;
-      user().historySelectedDate=key;
-      renderCalendarPage();
-    });
-  });
+  box.innerHTML=out;
+  box.querySelectorAll("[data-history-date]").forEach(btn=>btn.addEventListener("click",()=>{
+    user().historySelectedDate=btn.dataset.historyDate;
+    saveSoon();
+    if(gridId==="historyCalendar")renderHistory();else renderCalendarPage();
+  }));
 }
 
-function renderHistoryDetail(containerId="historyDetail",events=historyEventsByDate()){
-  const title=document.getElementById("historyDetailTitle");
-  const sub=document.getElementById("historyDetailSub");
-  const box=document.getElementById(containerId);
-  if(!title||!sub||!box)return;
+function renderHistory(){
+  const u=user();if(!u)return;
+  const events=historyEventsByDate(),range=dateRangeForHistory();
+  const all=Object.values(events).flat();
+  document.getElementById("historyDays").textContent=Math.max(0,Math.floor((range.end-range.start)/86400000)+1);
+  document.getElementById("historyPurchases").textContent=(u.purchaseHistory||[]).length;
+  document.getElementById("historySchedules").textContent=all.filter(x=>x.type==="schedule").length;
+  document.getElementById("historyQuests").textContent=all.filter(x=>x.type==="quest"||x.type==="exercise").length;
+  if(!u.historySelectedDate)u.historySelectedDate=day();
+  renderHistoryCalendar(events,range,"historyCalendar","historyMonthLabel");
+  renderHistoryDetail(u.historySelectedDate,events,"historyDetail");
+}
 
-  const list=events[date]||[];
-  const s=historySummaryForDate(date,events);
-
-  const parsed=new Date(date+"T12:00:00");
-  title.textContent=parsed.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"});
-  sub.textContent=`${s.schedules} schedule completed · ${s.quests} side quest completed · ${s.purchases} Point Shop purchase${s.purchases===1?"":"s"} · point change ${s.pointDelta>=0?"+":""}${s.pointDelta.toLocaleString()}`;
-
-  if(!list.length){
-    box.innerHTML='<div class="historyEmpty">No recorded activity on this date.</div>';
-    return;
-  }
-
-  box.innerHTML=`<div class="historyEventList">${list.map(x=>{
-    const positive=x.points>0,negative=x.points<0;
-    const icon=x.type==="purchase"?"🛒":x.type==="schedule"?"📋":(x.type==="quest"||x.type==="exercise")?"⚔️":x.type==="decay"?"📉":"•";
-    const pointText=x.points?`${x.points>0?"+":""}${x.points.toLocaleString()} ⭐`:"";
-    const cls=positive?"historyPositive":negative?"historyNegative":"";
-    return `<div class="historyEvent">
-      <div class="historyEventMain">
-        <b>${icon} ${esc(x.title)}</b>
-        <small>${esc(x.detail)}</small>
-      </div>
-      <span class="${cls}">${pointText}</span>
-    </div>`;
-  }).join("")}</div>`;
+function renderCalendarPage(){
+  const u=user();if(!u)return;
+  const events=historyEventsByDate(),range=dateRangeForHistory();
+  if(!u.historySelectedDate)u.historySelectedDate=day();
+  renderHistoryCalendar(events,range,"calendarGrid","calendarMonthLabel");
+  renderHistoryDetail(u.historySelectedDate,events,"calendarDayDetail");
 }
 
 function changeHistoryMonth(delta){
   if(!window.lifeQuestHistoryMonth){
-    const t=new Date();
-    window.lifeQuestHistoryMonth={year:t.getFullYear(),month:t.getMonth()};
+    const t=new Date();window.lifeQuestHistoryMonth={year:t.getFullYear(),month:t.getMonth()};
   }
   const d=new Date(window.lifeQuestHistoryMonth.year,window.lifeQuestHistoryMonth.month+delta,1);
   window.lifeQuestHistoryMonth={year:d.getFullYear(),month:d.getMonth()};
-  renderHistory();
+  const active=document.querySelector(".section.active")?.id;
+  if(active==="calendar")renderCalendarPage();else renderHistory();
 }
 
 /* ---------- Statistics ---------- */
@@ -1900,141 +1834,9 @@ document.addEventListener("visibilitychange",()=>{
 applyDailyPointDecay();
 render();
 scheduleNextDecayCheck();
-
-/* LIFEQUEST_CALENDAR_REPAIR_V1 */
-(function(){
-  function pad(n){ return String(n).padStart(2,'0'); }
-  function key(y,m,d){ return y+'-'+pad(m+1)+'-'+pad(d); }
-  function safeUser(){
-    try { return typeof user === 'function' ? user() : null; } catch(e){ return null; }
-  }
-  function allHistoryEvents(){
-    const u=safeUser()||{};
-    const events=[];
-    const push=(date,type,name,points,meta)=>{
-      if(!date) return;
-      events.push({date:String(date).slice(0,10),type:type||'activity',name:name||'Activity',points:Number(points)||0,meta:meta||{}});
-    };
-    (Array.isArray(u.purchaseHistory)?u.purchaseHistory:[]).forEach(p=>{
-      push(p.date||p.createdAt||p.timestamp,'purchase',p.name||p.item||'Point Shop purchase',-(Number(p.price)||0),p);
-    });
-    (Array.isArray(u.activityLog)?u.activityLog:[]).forEach(a=>{
-      const date=a.date||a.createdAt||a.timestamp;
-      let pts=Number(a.points);
-      if(!Number.isFinite(pts)) pts=Number(a.amount)||0;
-      push(date,a.type||'activity',a.name||a.title||'Activity',pts,a);
-    });
-    (Array.isArray(u.completionHistory)?u.completionHistory:[]).forEach(c=>{
-      const date=c.date||c.day||c.completedAt||c.timestamp;
-      const count=Number(c.count);
-      if(Number.isFinite(count) && count>0){
-        push(date,'schedule','Schedule completed',0,c);
-      } else if(c.completed===true || c.taskId || c.task){
-        push(date,'schedule',c.name||c.task||'Schedule completed',Number(c.points)||0,c);
-      }
-    });
-    return events;
-  }
-
-  window.LifeQuestCalendarRepair={
-    eventsByDate:function(){
-      const map={};
-      allHistoryEvents().forEach(e=>{
-        if(!map[e.date]) map[e.date]=[];
-        map[e.date].push(e);
-      });
-      return map;
-    }
-  };
-
-  // Re-render the dedicated Calendar page independently of older history code.
-  window.renderCalendarPage=function(){
-    const grid=document.getElementById('calendarGrid');
-    const label=document.getElementById('calendarMonthLabel');
-    const detail=document.getElementById('calendarDayDetail');
-    if(!grid || !label || !detail) return;
-
-    const now=new Date();
-    if(!window.lifeQuestCalendarMonth) window.lifeQuestCalendarMonth={y:now.getFullYear(),m:now.getMonth()};
-    const state=window.lifeQuestCalendarMonth;
-    const first=new Date(state.y,state.m,1);
-    const last=new Date(state.y,state.m+1,0);
-    const startDay=first.getDay();
-    const days=last.getDate();
-    const events=LifeQuestCalendarRepair.eventsByDate();
-
-    label.textContent=first.toLocaleDateString(undefined,{month:'long',year:'numeric'});
-
-    const weekdays=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    let out=weekdays.map(d=>'<div class="history-cal-head">'+d+'</div>').join('');
-
-    for(let i=0;i<startDay;i++) out+='<div class="history-cal-day empty"></div>';
-
-    for(let d=1;d<=days;d++){
-      const k=key(state.y,state.m,d);
-      const dayEvents=events[k]||[];
-      const schedules=dayEvents.filter(e=>e.type==='schedule').length;
-      const quests=dayEvents.filter(e=>e.type==='quest'||e.type==='exercise').length;
-      const purchases=dayEvents.filter(e=>e.type==='purchase').length;
-      const net=dayEvents.reduce((s,e)=>s+(Number(e.points)||0),0);
-      const selected=(safeUser()||{}).historySelectedDate===k;
-      const cls='history-cal-day'+(selected?' selected':'')+(k===key(now.getFullYear(),now.getMonth(),now.getDate())?' today':'');
-      out+='<button type="button" class="'+cls+'" onclick="selectCalendarDate(\''+k+'\')">'+
-        '<div class="history-cal-number">'+d+'</div>'+
-        (schedules?'<div>📋 '+schedules+'</div>':'')+
-        (quests?'<div>⚔️ '+quests+'</div>':'')+
-        (purchases?'<div>🛒 '+purchases+'</div>':'')+
-        (net?'<div class="history-net">'+(net>0?'+':'')+net+' pts</div>':'')+
-        '</button>';
-    }
-    grid.innerHTML=out;
-
-    const selectedDate=(safeUser()||{}).historySelectedDate || key(now.getFullYear(),now.getMonth(),now.getDate());
-    renderCalendarDayDetail(selectedDate,events,detail);
-  };
-
-  window.selectCalendarDate=function(date){
-    const u=safeUser();
-    if(u) u.historySelectedDate=date;
-    try { if(typeof save==='function') save(); } catch(e){}
-    renderCalendarPage();
-  };
-
-  window.changeHistoryMonth=function(delta){
-    const now=new Date();
-    if(!window.lifeQuestCalendarMonth) window.lifeQuestCalendarMonth={y:now.getFullYear(),m:now.getMonth()};
-    window.lifeQuestCalendarMonth.m+=Number(delta)||0;
-    const d=new Date(window.lifeQuestCalendarMonth.y,window.lifeQuestCalendarMonth.m,1);
-    window.lifeQuestCalendarMonth={y:d.getFullYear(),m:d.getMonth()};
-    renderCalendarPage();
-  };
-
-  function renderCalendarDayDetail(date,events,box){
-    const list=events[date]||[];
-    const total=list.reduce((s,e)=>s+(Number(e.points)||0),0);
-    const scheduleCount=list.filter(e=>e.type==='schedule').length;
-    const questCount=list.filter(e=>e.type==='quest'||e.type==='exercise').length;
-    const purchaseCount=list.filter(e=>e.type==='purchase').length;
-    let h='<h3>📌 '+date+'</h3>'+
-      '<div class="history-detail-stats">'+
-      '<span>📋 '+scheduleCount+' schedules</span>'+
-      '<span>⚔️ '+questCount+' quests</span>'+
-      '<span>🛒 '+purchaseCount+' purchases</span>'+
-      '<span>💰 '+(total>=0?'+':'')+total+' pts</span></div>';
-    if(!list.length){ box.innerHTML=h+'<p class="muted">No recorded activity for this date.</p>'; return; }
-    h+='<div class="history-events">';
-    list.sort((a,b)=>String(a.type).localeCompare(String(b.type))).forEach(e=>{
-      h+='<div class="history-event"><strong>'+escapeHtml(e.name)+'</strong><span>'+(e.points>=0?'+':'')+e.points+' pts</span></div>';
-    });
-    h+='</div>';
-    box.innerHTML=h;
-  }
-
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});
-  }
-})();
-
+/* LIFEQUEST_HISTORY_LISTENERS_V3 */
+document.getElementById("historyPrevMonth")?.addEventListener("click",()=>changeHistoryMonth(-1));
+document.getElementById("historyNextMonth")?.addEventListener("click",()=>changeHistoryMonth(1));
 </script>
 </body>
 </html>
