@@ -525,7 +525,14 @@ function newAccount(name){
    {id:crypto.randomUUID(),icon:"🎲",name:"Dice Roll Version",description:"Buy one dice roll to randomly choose a saved version for a selected day of the week.",price:100,special:"version_roll"}
   ],
   quests:[
-   {id:crypto.randomUUID(),category:"Exercise",icon:"🏃",name:"Movement",description:"Choose one short exercise below.",reward:1,repeatable:true,exerciseGroup:true},
+   {id:crypto.randomUUID(),category:"Exercise",icon:"🏃",name:"Movement",description:"Choose one short exercise below.",reward:1,repeatable:true,exerciseGroup:true,exercises:[
+    {id:crypto.randomUUID(),name:"10-minute walk",points:1},
+    {id:crypto.randomUUID(),name:"Stretching",points:1},
+    {id:crypto.randomUUID(),name:"Bodyweight squats",points:1},
+    {id:crypto.randomUUID(),name:"Wall push-ups",points:1},
+    {id:crypto.randomUUID(),name:"Light mobility",points:1},
+    {id:crypto.randomUUID(),name:"Easy plank",points:1}
+   ]},
    {id:crypto.randomUUID(),category:"Learning",icon:"📚",name:"Finish a Book",description:"Read a book from beginning to end.",reward:10000},
    {id:crypto.randomUUID(),category:"Learning",icon:"🧠",name:"Deep Study",description:"Complete one focused study block.",reward:100},
    {id:crypto.randomUUID(),category:"Life",icon:"🧹",name:"Clean Your Workspace",description:"Reset your study/work area.",reward:25}
@@ -570,6 +577,12 @@ function migrateSchedules(u){
   if(typeof u.versionRolls!=="number")u.versionRolls=0;
   if(!Array.isArray(u.quests))u.quests=[];
   if(!Array.isArray(u.exercises))u.exercises=[];
+  // Each Exercise List owns its own exercises. Migrate legacy shared exercises once.
+  u.quests.forEach(q=>{
+    if(q?.exerciseGroup && !Array.isArray(q.exercises)){
+      q.exercises=(u.exercises||[]).map(e=>({id:e.id||crypto.randomUUID(),name:e.name||"Exercise",points:Math.max(1,Number(e.points||1))}));
+    }
+  });
   if(!Array.isArray(u.questCategories))u.questCategories=[];
   // Preserve legacy categories while allowing completely custom categories.
   u.quests.forEach(q=>{if(q?.category && !u.questCategories.includes(q.category))u.questCategories.push(q.category);});
@@ -1336,21 +1349,21 @@ function renderQuests(){
         out+=`<div class="card exerciseGroupCard">
           <div class="exerciseGroupHead">
             <div>
-              <div class="exerciseGroupTitle">${esc(q.icon)} ${esc(q.name)} <span class="questModeBadge">🏃 Movement mode</span></div>
+              <div class="exerciseGroupTitle">${esc(q.icon)} ${esc(q.name)} <span class="questModeBadge">Exercise List</span></div>
               <div class="desc">${esc(q.description)}</div>
             </div>
             <div style="display:flex;gap:6px;flex-shrink:0">
               <button class="btn" type="button" onclick="questModal('${q.id}')">✏️ Edit</button>
-              <button class="btn" type="button" onclick="movementExerciseListModal()">✏️ Edit List</button>
+              <button class="btn" type="button" onclick="exerciseListModal('${q.id}')">✏️ Edit List</button>
               <button class="btn danger" type="button" onclick="deleteQuest('${q.id}')">×</button>
             </div>
           </div>
           <div class="exerciseList">
-            ${(u.exercises||[]).map(e=>{
+            ${(Array.isArray(q.exercises)?q.exercises:[]).map(e=>{
               const claimed=isDailyQuestClaimed("exercise",e.id);
               return `<div class="exercise">
                 <div><b>${esc(e.name)}</b><br><small>+${Number(e.points||0).toLocaleString()} ⭐</small></div>
-                <button class="btn primary" ${claimed?"disabled":""} onclick="exercise('${e.id}')">${claimed?"✓ Completed Today":"Complete"}</button>
+                <button class="btn primary" ${claimed?"disabled":""} onclick="exercise('${q.id}','${e.id}')">${claimed?"✓ Completed Today":"Complete"}</button>
               </div>`;
             }).join("")||'<div class="empty" style="grid-column:1/-1">No exercises yet.</div>'}
           </div>
@@ -1379,19 +1392,19 @@ function renderQuests(){
   box.innerHTML=out;
 }
 
-function exercise(id){
-  const u=user(),e=u.exercises.find(x=>x.id===id);
-  if(!e)return;
+function exercise(questId,id){
+  const u=user(),q=u.quests.find(x=>x.id===questId),e=q?.exercises?.find(x=>x.id===id);
+  if(!q||!e)return;
   if(isDailyQuestClaimed("exercise",id)){
     toast("Already completed today","This exercise is available again tomorrow.");
     return;
   }
   if(!markDailyQuestClaimed("exercise",id))return;
-  u.points+=e.points;
-  u.lifetimeEarned+=e.points;
-  u.activityLog.push({type:"exercise",name:e.name,exerciseId:e.id,date:new Date().toISOString(),points:e.points});
+  u.points+=Number(e.points||0);
+  u.lifetimeEarned+=Number(e.points||0);
+  u.activityLog.push({type:"exercise",name:e.name,exerciseId:e.id,questId:q.id,questName:q.name,date:new Date().toISOString(),points:Number(e.points||0)});
   saveSoon();
-  toast("Exercise quest complete 💪",`+${e.points} point`);
+  toast("Exercise complete 💪",`+${Number(e.points||0)} point`);
   requestRender();
 }
 
@@ -1973,15 +1986,15 @@ function questModal(id=null,defaultCategory=""){
   editId=id;
   const categories=getQuestCategories();
   const currentCategory=x?.category||defaultCategory||categories[0]||"Other";
-  const modeValue=x?.exerciseGroup?"movement":"standard";
+  const modeValue=x?.exerciseGroup?"exerciseList":"standard";
   const categoryOptions=categories.map(c=>`<option value="${attr(c)}" ${c===currentCategory?"selected":""}>${esc(c)}</option>`).join("");
 
   modal(
     id?"Edit Side Quest":"New Side Quest",
-    `<div class="field"><label>Display Mode</label><select id="f0" onchange="toggleQuestModeFields()">
+    `<div class="field"><label>List Type</label><select id="f0" onchange="toggleQuestModeFields()">
       <option value="standard" ${modeValue==="standard"?"selected":""}>⚔️ Standard Side Quest</option>
-      <option value="movement" ${modeValue==="movement"?"selected":""}>🏃 Movement / Exercise List (like the picture)</option>
-    </select><small style="display:block;color:var(--muted);margin-top:5px">Movement mode displays the large exercise list with a Complete button for each exercise.</small></div>
+      <option value="exerciseList" ${modeValue==="exerciseList"?"selected":""}>🏃 Exercise List</option>
+    </select><small style="display:block;color:var(--muted);margin-top:5px">Exercise List shows its own independent list of exercises, each with its own Complete button.</small></div>
     <div class="field"><label>Category</label><select id="f1" onchange="toggleCustomQuestCategory()">${categoryOptions}<option value="__custom__">＋ Create new category…</option></select>
       <input id="f1custom" style="display:none;margin-top:8px" placeholder="e.g. Family, Faith, Health, Finance" maxlength="50">
     </div>
@@ -1995,26 +2008,29 @@ function questModal(id=null,defaultCategory=""){
 }
 
 function toggleQuestModeFields(){
-  const movement=f("f0")==="movement";
+  const exerciseList=f("f0")==="exerciseList";
   const reward=document.getElementById("questRewardField");
-  if(reward)reward.style.display=movement?"none":"block";
+  if(reward)reward.style.display=exerciseList?"none":"block";
 }
 
-/* ---------- Movement exercise list editor ---------- */
-function movementExerciseListModal(){
+/* ---------- Independent exercise-list editor ---------- */
+function exerciseListModal(questId){
   const u=user();
-  const exercises=Array.isArray(u.exercises)?u.exercises:[];
-  const rows=exercises.map((e,i)=>movementExerciseEditorRow(e,i)).join("");
+  const q=u.quests.find(x=>x.id===questId);
+  if(!q)return;
+  if(!q.exerciseGroup){toast("Not an Exercise List","Edit the side quest and choose Exercise List first.");return;}
+  if(!Array.isArray(q.exercises))q.exercises=[];
+  const rows=q.exercises.map((e,i)=>exerciseListEditorRow(e,i)).join("");
   modal(
-    "Edit Movement Exercise List",
-    `<div class="notice">Edit the exercises that appear inside every 🏃 Movement list. You can change the name and reward, add new exercises, delete exercises, and change their order. Changes are saved to your Movement list immediately after pressing Save.</div>
-     <div id="movementExerciseEditor" class="movementExerciseEditor">${rows||'<div class="empty" id="movementExerciseEmpty">No exercises yet. Add your first exercise below.</div>'}</div>
-     <button class="btn" type="button" style="width:100%;margin-top:10px" onclick="addMovementExerciseRow()">＋ Add Exercise</button>`,
-    saveMovementExerciseList
+    `Edit Exercise List — ${esc(q.name)}`,
+    `<div class="notice">This list belongs only to <b>${esc(q.name)}</b>. Changes here will not affect any other Exercise List.</div>
+     <div id="exerciseListEditor" class="movementExerciseEditor" data-quest-id="${attr(q.id)}">${rows||'<div class="empty" id="exerciseListEmpty">No exercises yet. Add the first exercise below.</div>'}</div>
+     <button class="btn" type="button" style="width:100%;margin-top:10px" onclick="addExerciseListRow()">＋ Add Exercise</button>`,
+    ()=>saveExerciseList(q.id)
   );
 }
 
-function movementExerciseEditorRow(e,index){
+function exerciseListEditorRow(e,index){
   const id=e?.id||"";
   return `<div class="movementExerciseRow" data-id="${attr(id)}">
     <div class="movementExerciseGrip">☷</div>
@@ -2023,72 +2039,71 @@ function movementExerciseEditorRow(e,index){
       <div class="field"><label>Reward ⭐</label><input class="movementExercisePoints" type="number" min="1" step="1" value="${Math.max(1,Number(e?.points||1))}"></div>
     </div>
     <div class="movementExerciseActions">
-      <button class="btn" type="button" title="Move up" onclick="moveMovementExerciseRow(this,-1)">↑</button>
-      <button class="btn" type="button" title="Move down" onclick="moveMovementExerciseRow(this,1)">↓</button>
-      <button class="btn danger" type="button" title="Delete exercise" onclick="removeMovementExerciseRow(this)">×</button>
+      <button class="btn" type="button" title="Move up" onclick="moveExerciseListRow(this,-1)">↑</button>
+      <button class="btn" type="button" title="Move down" onclick="moveExerciseListRow(this,1)">↓</button>
+      <button class="btn danger" type="button" title="Delete exercise" onclick="removeExerciseListRow(this)">×</button>
     </div>
   </div>`;
 }
 
-function renumberMovementExerciseRows(){
-  document.querySelectorAll("#movementExerciseEditor .movementExerciseRow").forEach((row,i)=>{
+function renumberExerciseListRows(){
+  document.querySelectorAll("#exerciseListEditor .movementExerciseRow").forEach((row,i)=>{
     const label=row.querySelector("label");
     if(label)label.textContent="Exercise "+(i+1);
   });
 }
 
-function addMovementExerciseRow(){
-  const editor=document.getElementById("movementExerciseEditor");
+function addExerciseListRow(){
+  const editor=document.getElementById("exerciseListEditor");
   if(!editor)return;
-  const empty=document.getElementById("movementExerciseEmpty");
+  const empty=document.getElementById("exerciseListEmpty");
   if(empty)empty.remove();
   const wrap=document.createElement("div");
-  wrap.innerHTML=movementExerciseEditorRow({id:"",name:"",points:1},editor.querySelectorAll(".movementExerciseRow").length).trim();
+  wrap.innerHTML=exerciseListEditorRow({id:"",name:"",points:1},editor.querySelectorAll(".movementExerciseRow").length).trim();
   const row=wrap.firstElementChild;
   editor.appendChild(row);
-  renumberMovementExerciseRows();
-  const input=row.querySelector(".movementExerciseName");
-  input?.focus();
+  renumberExerciseListRows();
+  row.querySelector(".movementExerciseName")?.focus();
   row.scrollIntoView({behavior:"smooth",block:"nearest"});
 }
 
-function moveMovementExerciseRow(button,direction){
-  const row=button.closest(".movementExerciseRow"),editor=document.getElementById("movementExerciseEditor");
+function moveExerciseListRow(button,direction){
+  const row=button.closest(".movementExerciseRow"),editor=document.getElementById("exerciseListEditor");
   if(!row||!editor)return;
   const rows=[...editor.querySelectorAll(".movementExerciseRow")];
   const index=rows.indexOf(row),target=index+direction;
   if(target<0||target>=rows.length)return;
   if(direction<0)editor.insertBefore(row,rows[target]);
   else editor.insertBefore(row,rows[target].nextSibling);
-  renumberMovementExerciseRows();
+  renumberExerciseListRows();
 }
 
-function removeMovementExerciseRow(button){
-  const row=button.closest(".movementExerciseRow"),editor=document.getElementById("movementExerciseEditor");
+function removeExerciseListRow(button){
+  const row=button.closest(".movementExerciseRow"),editor=document.getElementById("exerciseListEditor");
   if(!row||!editor)return;
   const name=row.querySelector(".movementExerciseName")?.value.trim()||"this exercise";
-  if(!confirm(`Delete "${name}" from the Movement list? Existing Calendar history will remain.`))return;
+  if(!confirm(`Delete "${name}" from this Exercise List? Existing Calendar history will remain.`))return;
   row.remove();
-  renumberMovementExerciseRows();
-  if(!editor.querySelector(".movementExerciseRow"))editor.innerHTML='<div class="empty" id="movementExerciseEmpty">No exercises yet. Add your first exercise below.</div>';
+  renumberExerciseListRows();
+  if(!editor.querySelector(".movementExerciseRow"))editor.innerHTML='<div class="empty" id="exerciseListEmpty">No exercises yet. Add the first exercise below.</div>';
 }
 
-function saveMovementExerciseList(){
-  const u=user(),editor=document.getElementById("movementExerciseEditor");
-  if(!editor)return;
+function saveExerciseList(questId){
+  const u=user(),q=u.quests.find(x=>x.id===questId),editor=document.getElementById("exerciseListEditor");
+  if(!q||!editor)return;
   const rows=[...editor.querySelectorAll(".movementExerciseRow")];
   const next=[];
   for(const row of rows){
     const name=row.querySelector(".movementExerciseName")?.value.trim()||"";
     const points=Math.max(1,Number(row.querySelector(".movementExercisePoints")?.value||1));
-    if(!name)return toast("Exercise name required","Every Movement exercise needs a name.");
+    if(!name)return toast("Exercise name required","Every exercise needs a name.");
     next.push({id:row.dataset.id||crypto.randomUUID(),name,points});
   }
-  u.exercises=next;
-  backup("Updated Movement exercise list");
+  q.exercises=next;
+  backup(`Updated exercise list: ${q.name}`);
   saveSoon();
   closeModal();
-  toast("Movement list saved 💪",`${next.length} exercise${next.length===1?"":"s"} in the list.`);
+  toast("Exercise list saved 💪",`${q.name}: ${next.length} exercise${next.length===1?"":"s"}.`);
   requestRender();
 }
 
@@ -2108,7 +2123,7 @@ function saveQuest(){
   const icon=f("f2")||"⚔️";
   const name=f("f3").trim();
   const description=f("f4").trim();
-  const movement=f("f0")==="movement";
+  const exerciseList=f("f0")==="exerciseList";
   const reward=Math.max(1,+f("f5")||1);
 
   if(!name)return toast("Name required","Enter a side-quest name.");
@@ -2116,12 +2131,22 @@ function saveQuest(){
 
   if(editId){
     const x=u.quests.find(x=>x.id===editId);
-    if(x)Object.assign(x,{category,icon,name,description,reward,exerciseGroup:movement});
+    if(x){
+      const wasExerciseList=!!x.exerciseGroup;
+      Object.assign(x,{category,icon,name,description,reward,exerciseGroup:exerciseList});
+      // If an existing list is converted to an Exercise List, give it its own copy.
+      if(exerciseList&&!Array.isArray(x.exercises)){
+        const legacy=(wasExerciseList&&Array.isArray(x.exercises))?x.exercises:(Array.isArray(u.exercises)?u.exercises:[]);
+        x.exercises=legacy.map(e=>({id:e.id||crypto.randomUUID(),name:e.name||"Exercise",points:Math.max(1,Number(e.points||1))}));
+      }
+    }
   }else{
-    u.quests.push({id:crypto.randomUUID(),category,icon,name,description,reward,exerciseGroup:movement});
+    const q={id:crypto.randomUUID(),category,icon,name,description,reward,exerciseGroup:exerciseList};
+    if(exerciseList)q.exercises=[];
+    u.quests.push(q);
   }
 
-  backup(movement?"Changed movement side quest":"Changed side quest");
+  backup(exerciseList?"Changed exercise-list side quest":"Changed side quest");
   closeModal();
   requestRender();
 }
