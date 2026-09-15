@@ -81,6 +81,12 @@
   margin-bottom:16px;
 }
 .calendar-toolbar h3{margin:0;text-align:center;flex:1}
+
+/* LIFEQUEST_PAST_CALENDAR_V1 */
+#calendarGrid .history-cal-empty{min-height:88px}
+#calendarGrid .historyDay.future{opacity:.35;cursor:default}
+#calendarPrevMonth:disabled,#calendarNextMonth:disabled{opacity:.35;cursor:not-allowed}
+
 </style>
 </head>
 <body>
@@ -220,9 +226,9 @@
   <div class="history-grid">
     <div class="card">
       <div class="calendar-toolbar">
-        <button class="btn secondary" onclick="changeHistoryMonth(-1)">‹</button>
+        <button id="calendarPrevMonth" class="btn secondary" onclick="changeCalendarMonth(-1)">‹</button>
         <h3 id="calendarMonthLabel">Calendar</h3>
-        <button class="btn secondary" onclick="changeHistoryMonth(1)">›</button>
+        <button id="calendarNextMonth" class="btn secondary" onclick="changeCalendarMonth(1)">›</button>
       </div>
       <div id="calendarGrid" class="history-calendar"></div>
     </div>
@@ -1312,11 +1318,115 @@ function renderHistory(){
 }
 
 function renderCalendarPage(){
-  const u=user();if(!u)return;
-  const events=historyEventsByDate(),range=dateRangeForHistory();
-  if(!u.historySelectedDate)u.historySelectedDate=day();
-  renderHistoryCalendar(events,range,"calendarGrid","calendarMonthLabel");
-  renderHistoryDetail(u.historySelectedDate,events,"calendarDayDetail");
+  const u=user();
+  const grid=document.getElementById("calendarGrid");
+  const label=document.getElementById("calendarMonthLabel");
+  const detail=document.getElementById("calendarDayDetail");
+  if(!u||!grid||!label||!detail)return;
+
+  const events=historyEventsByDate();
+  const range=dateRangeForHistory();
+  const rangeLabel=document.getElementById("calendarHistoryRange");
+  if(rangeLabel){
+    const joinLabel=range.start.toLocaleDateString(undefined,{day:"numeric",month:"long",year:"numeric"});
+    const endLabel=range.end.toLocaleDateString(undefined,{day:"numeric",month:"long",year:"numeric"});
+    rangeLabel.textContent=`History from ${joinLabel} through ${endLabel}`;
+  }
+
+  // Calendar always starts from the user's join month, but opens on the
+  // current month. Every month between join date and today is navigable.
+  if(!window.lifeQuestCalendarMonth){
+    const t=new Date();
+    window.lifeQuestCalendarMonth={year:t.getFullYear(),month:t.getMonth()};
+  }
+
+  const view=new Date(window.lifeQuestCalendarMonth.year,window.lifeQuestCalendarMonth.month,1);
+  const join=new Date(range.start.getFullYear(),range.start.getMonth(),1);
+  const current=new Date(range.end.getFullYear(),range.end.getMonth(),1);
+
+  // Keep navigation inside the actual account history range.
+  if(view<join){
+    window.lifeQuestCalendarMonth={year:join.getFullYear(),month:join.getMonth()};
+  }
+  if(view>current){
+    window.lifeQuestCalendarMonth={year:current.getFullYear(),month:current.getMonth()};
+  }
+
+  const safeView=new Date(window.lifeQuestCalendarMonth.year,window.lifeQuestCalendarMonth.month,1);
+  label.textContent=safeView.toLocaleDateString(undefined,{month:"long",year:"numeric"});
+
+  const prev=document.getElementById("calendarPrevMonth");
+  const next=document.getElementById("calendarNextMonth");
+  const atFirst=safeView.getFullYear()===join.getFullYear()&&safeView.getMonth()===join.getMonth();
+  const atLast=safeView.getFullYear()===current.getFullYear()&&safeView.getMonth()===current.getMonth();
+  if(prev)prev.disabled=atFirst;
+  if(next)next.disabled=atLast;
+
+  const weekdays=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  let out=weekdays.map(x=>`<div class="historyDow">${x}</div>`).join("");
+
+  for(let i=0;i<safeView.getDay();i++)out+="<div class=\"history-cal-empty\"></div>";
+
+  const daysInMonth=new Date(safeView.getFullYear(),safeView.getMonth()+1,0).getDate();
+  const selected=u.historySelectedDate||day();
+  const today=day();
+
+  for(let n=1;n<=daysInMonth;n++){
+    const k=`${safeView.getFullYear()}-${String(safeView.getMonth()+1).padStart(2,"0")}-${String(n).padStart(2,"0")}`;
+    const d=new Date(safeView.getFullYear(),safeView.getMonth(),n);
+    const inHistory=d>=range.start&&d<=range.end;
+    const s=historySummaryForDate(k,events);
+
+    let classes="historyDay";
+    if(k===today)classes+=" today";
+    if(k===selected)classes+=" selected";
+    if(!inHistory)classes+=" future";
+
+    out+=`<button type="button" class="${classes}" data-history-date="${k}" ${inHistory?"":"disabled"}>
+      <div class="historyDayNum">${n}</div>
+      ${inHistory&&s.schedules?`<div>📋 ${s.schedules} schedule${s.schedules===1?"":"s"}</div>`:""}
+      ${inHistory&&s.quests?`<div>⚔️ ${s.quests} quest${s.quests===1?"":"s"}</div>`:""}
+      ${inHistory&&s.purchases?`<div>🛒 ${s.purchases} purchase${s.purchases===1?"":"s"}</div>`:""}
+      ${inHistory&&s.pointDelta?`<div class="history-net">${s.pointDelta>0?"+":""}${s.pointDelta.toLocaleString()} ⭐</div>`:""}
+    </button>`;
+  }
+
+  grid.innerHTML=out;
+
+  grid.querySelectorAll("[data-history-date]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      u.historySelectedDate=btn.dataset.historyDate;
+      saveSoon();
+      renderCalendarPage();
+    });
+  });
+
+  // If the selected date is outside the currently displayed month, show the
+  // first useful date in this month instead of an unrelated blank detail.
+  const detailDate=(selected.slice(0,7)===
+    `${safeView.getFullYear()}-${String(safeView.getMonth()+1).padStart(2,"0")}`)
+    ?selected
+    :`${safeView.getFullYear()}-${String(safeView.getMonth()+1).padStart(2,"0")}-01`;
+
+  renderHistoryDetail(detailDate,events,"calendarDayDetail");
+}
+function changeCalendarMonth(delta){
+  if(!window.lifeQuestCalendarMonth){
+    const t=new Date();
+    window.lifeQuestCalendarMonth={year:t.getFullYear(),month:t.getMonth()};
+  }
+  const d=new Date(
+    window.lifeQuestCalendarMonth.year,
+    window.lifeQuestCalendarMonth.month+(Number(delta)||0),
+    1
+  );
+  const range=dateRangeForHistory();
+  const min=new Date(range.start.getFullYear(),range.start.getMonth(),1);
+  const max=new Date(range.end.getFullYear(),range.end.getMonth(),1);
+  if(d<min||d>max)return;
+
+  window.lifeQuestCalendarMonth={year:d.getFullYear(),month:d.getMonth()};
+  renderCalendarPage();
 }
 
 function changeHistoryMonth(delta){
