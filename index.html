@@ -372,6 +372,8 @@
 
 <script>
 /* LifeQuest V3 — canonical history ledger + optimized rendering + robust modal UX */
+/* V3.1 — syntax/runtime/performance repair */
+/* V3.2 — VCH saved-version import */
 const KEY="lifequest_accounts_v3";
 let saveTimer=null;
 let renderFrame=null;
@@ -397,6 +399,60 @@ if(!db.accounts[activeId]){
   db.active=activeId;
 }
 Object.values(db.accounts).forEach(migrateSchedules);
+
+/* ---------- Imported VCH versions ---------- */
+/*
+  The saved versions below come from lifequest-vch.json.
+  Import policy:
+  - If the active account has no saved versions, use the VCH versions exactly
+    as entered, preserving their order/names/schedules.
+  - If versions already exist, append only versions whose IDs are missing.
+  - The VCH weekly day assignments are restored only when the active account
+    has no weekly version assignment yet.
+  This runs once per account and is deliberately NOT part of render loops.
+*/
+const VCH_VERSION_IMPORT = {"scheduleVersions":[{"id":"41f51264-687f-4443-8de0-72471b40dd68","name":"1 (12h)","createdAt":"2026-09-15T14:17:05.870Z","schedules":[{"id":"93642a70-b03d-4b71-ba5c-f2ab694732bd","time":"09:00","name":"Bible","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"72d52820-2b73-44b9-b3c6-c841584b5272","time":"10:00","name":"Hebrew","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"fb894d00-a923-4a38-a9f2-ab46f0018939","time":"11:00","name":"Hebrew","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"18f7c118-06d8-4d21-81c5-7cae6d295fc6","time":"12:00","name":"Freedom","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"079a5e0b-dd18-4f31-ab32-bbfaa776a704","time":"13:00","name":"Cognitive","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"2705e304-7cec-40fa-a01b-614fabf4988a","time":"14:00","name":"Music","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"529935a6-289f-45a9-8e10-895e48f2012a","time":"15:00","name":"Freedom","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"239dafd5-b325-4fef-9de0-e308fc6ff897","time":"16:00","name":"Trading/Business/Side Knowledge","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"6e0efb41-dc09-4c0d-9d2b-f9addd9c40fb","time":"17:00","name":"Chinese","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"4ec1cc5a-2520-432f-9c05-3a43bb13c232","time":"18:00","name":"Freedom","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"70137745-68a8-4886-9dd8-ff09df45ca7b","time":"19:00","name":"Chinese/Hebrew","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"5c9edd57-ac16-4826-97ec-74c20a0d5f7a","time":"20:00","name":"Bible","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"a792e7d2-5eb5-4a59-a569-43b8dd80e30f","time":"21:00","name":"Sleep","reward":10,"days":[0,1,2,3,4,5,6]}]},{"id":"ca19e258-23b5-4f72-803c-230adb212956","name":"2 (12h)","createdAt":"2026-09-15T14:21:54.871Z","schedules":[{"id":"69272438-f276-41e4-b12a-36887361fce1","time":"09:00","name":"Bible","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"e8a44ae1-06fd-4418-8557-1b295d376b01","time":"10:00","name":"Growth Palate","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"2ec56c55-0a57-4ff3-bd05-b072127ef70b","time":"11:00","name":"Hebrew","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"f492a2db-8a39-48e6-8f1c-c3b8fbedb7b2","time":"12:00","name":"Freedom","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"21df2406-ebef-4261-8292-2dda1e26549d","time":"13:00","name":"Cognitive/Side Knowlege","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"988a952a-4c8f-4148-ad14-f466f218c615","time":"14:00","name":"Trading/Business/Side Knowledge","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"5ae6ec37-53dc-469a-9aa9-31e6d947efe6","time":"15:00","name":"Freedom","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"c4111774-edb9-4a12-a2cf-44f0079f2bfe","time":"16:00","name":"Footwork/Technology/News/Side Knowledge","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"9c4c1bd2-63b5-4918-b555-0c37a756f914","time":"17:00","name":"Physical/Chinese","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"0026d98e-b63a-4be8-9874-22643ebcb391","time":"18:00","name":"Freedom","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"50ed084c-63ab-4485-be7f-0bd31f785e24","time":"19:00","name":"Book/Psychology/Side Knowledge","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"13b20c4b-c901-45df-b7a7-d00bfb1a12c5","time":"20:00","name":"Bible","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"68ccf2d2-ce46-4120-bb73-b671a684dd9a","time":"21:00","name":"Sleep","reward":10,"days":[0,1,2,3,4,5,6]}]},{"id":"bf7ec8e4-fdb1-4d7c-9fca-485273766947","name":"3 (12h)","createdAt":"2026-09-15T14:25:36.911Z","schedules":[{"id":"dc868eeb-1e79-41f2-9a63-96dbe25df90d","time":"09:00","name":"Bible","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"3a17b70c-68c0-4f22-a7c5-e165811e92cc","time":"10:00","name":"Hebrew","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"ecd74208-1f58-4b7f-a287-1084ed02bb30","time":"11:00","name":"Chinese","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"a5051b76-e417-4c1d-90b4-92bbc1674b31","time":"12:00","name":"Freedom","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"3fbca1d2-bc12-477f-84d0-5435a2506703","time":"13:00","name":"Footwork/Growth Palate/Side Knowledge","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"5979782b-f676-4aed-b42f-d27d49a3fd11","time":"14:00","name":"Trading/Bussiness/Side Knowledge","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"58850054-e958-4678-b9d4-9e3746e28b22","time":"15:00","name":"Freedom","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"7f8772b6-3421-4dd2-8f1e-bab15c53f80b","time":"16:00","name":"Music/Technology/News/Side Knowledge","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"1139973e-8227-4588-ba51-394f553c50d0","time":"17:00","name":"Cognitive/Side Knowledge","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"a202c8ac-9ea3-49ae-befd-2c83f274077e","time":"18:00","name":"Freedom","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"cd16b598-52ae-4fe0-b8dd-2ed4b04d13a5","time":"19:00","name":"Book","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"9be30597-a0d0-4b02-931e-8d25657164ea","time":"20:00","name":"Bible","reward":10,"days":[0,1,2,3,4,5,6]},{"id":"3bf166de-4e35-4536-9814-03ecfbb3894c","time":"21:00","name":"Sleep","reward":10,"days":[0,1,2,3,4,5,6]}]},{"id":"32ff8b7d-e124-4788-9fea-6cf4ce9cba02","name":"1(5h)","createdAt":"2026-09-15T14:30:55.187Z","schedules":[{"id":"3a76bb09-f620-4b7a-95fe-2bccec35623e","time":"16:00","name":"Decompress","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"c364a02d-6c3f-46d5-93e8-9e6e08752bea","time":"16:30","name":"Decompress","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"1f9928bc-fb0b-41b9-b29b-bf59b546c29e","time":"17:00","name":"Cognitive","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"d2b3debc-30e9-43ba-8628-84302563e5b6","time":"17:30","name":"Bible","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"0846d3e2-4a73-4f81-9f3a-9ad6dbc7afc7","time":"18:00","name":"Freedom","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"b045b006-9d40-45b2-b123-5346ce82e5ff","time":"18:30","name":"Hebrew/Freedom","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"a30857fb-f34b-4576-b11c-6ed6103de850","time":"19:00","name":"Hebrew","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"a8c9af70-d9d1-48a2-962b-241f6dea68c3","time":"19:30","name":"Chinese","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"28b42931-954e-481d-a5a0-af3074f8dac5","time":"20:00","name":"Hebrew","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"07077802-ce18-4988-a1d2-6612afa847b6","time":"20:30","name":"Bible","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"a73da73e-efd8-4801-99e9-d32f1b3b3738","time":"21:00","name":"Sleep","reward":5,"days":[0,1,2,3,4,5,6]}]},{"id":"7e38e276-c599-412d-aa54-35d18413abc2","name":"2 (5h)","createdAt":"2026-09-15T14:34:15.033Z","schedules":[{"id":"f0f12e7f-b93a-46df-9293-5ac9e78a856c","time":"16:00","name":"Decompress","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"59e04c60-5452-43ed-b8fb-bf9c64967898","time":"16:30","name":"Decompress","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"aa376b56-0bd8-40c3-b717-59ca787116af","time":"17:00","name":"Cognitive","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"5fb9f2fd-10f2-4ad8-a24c-2e8c9c1fc576","time":"17:30","name":"Freedom/Hebrew","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"4f91ce17-3c8f-4f1b-9c21-cf9cf08b9c39","time":"18:00","name":"Freedom","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"ecd8ff19-0a95-4b4a-aaf0-55ba88368d2a","time":"18:30","name":"Freedom","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"52b75fa4-9994-4e5c-b673-69db2b07dba9","time":"19:00","name":"Pyschology/Technology/Side Knowledge","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"09e5ae92-ccb0-4654-9f1a-7d979803316c","time":"19:30","name":"Cognitive","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"ea489d5b-6e53-4a38-ac2c-d90d953f9ffe","time":"20:00","name":"Hebrew/Chinese","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"594c0304-896c-458e-99ae-10d3be9ec163","time":"20:30","name":"Bible","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"100671ef-1b17-41e7-99c5-22f804ceed4c","time":"21:00","name":"Sleep","reward":5,"days":[0,1,2,3,4,5,6]}]},{"id":"62b67b4a-4374-4033-9ee0-575396e6e750","name":"3 (5h)","createdAt":"2026-09-15T14:37:15.457Z","schedules":[{"id":"3cb4d2ac-24de-4850-bb0b-24879c310260","time":"16:00","name":"Decompress","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"55301dd5-489c-4541-a995-dafea344e8d4","time":"16:30","name":"Pysical","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"f84a9ae3-7208-4cab-b89a-7dc3b02ec78d","time":"17:00","name":"Pysical","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"09b3cfb2-9c2a-41d1-ac1e-ac1bc7fcb781","time":"17:30","name":"Footwork/Freedom","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"1e5493b7-ea42-4665-bffa-761d5a1c4333","time":"18:00","name":"Freedom","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"7aa39bbd-a2be-4545-ad2d-b202ed2a3168","time":"18:30","name":"Freedom","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"400c2268-8d4e-48d4-be2d-cc15f1f770f2","time":"19:00","name":"Cognitive/Side Knowledge/Freedom","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"0c498011-1fc6-4874-a7aa-ee4dead241e5","time":"19:30","name":"Music/Hebrew/Trading","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"fa002d32-b812-4130-8cad-d02aff57557b","time":"20:00","name":"Pyschology/Technology","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"f2a4dfec-d980-4f4c-a616-e08e896cd115","time":"20:30","name":"Bible","reward":5,"days":[0,1,2,3,4,5,6]},{"id":"fdc7fb65-8a56-455c-b119-edcd8cc06c39","time":"21:00","name":"Sleep","reward":5,"days":[0,1,2,3,4,5,6]}]}],"weeklyVersionSchedules":{"1":[{"id":"b57b99fc-732a-4d98-8c91-479ab53e6f4a","time":"09:00","name":"Bible","reward":10,"days":[1]},{"id":"740b66ca-2fae-4320-8bd2-19e796e3c898","time":"10:00","name":"Hebrew","reward":10,"days":[1]},{"id":"161184bc-a3c1-4ec3-98a8-def0f6f1a4cd","time":"11:00","name":"Chinese","reward":10,"days":[1]},{"id":"bee130c7-0426-4c36-98b0-58ceadf3c3c4","time":"12:00","name":"Freedom","reward":10,"days":[1]},{"id":"61a4b7c8-c419-45a5-b8f4-e13ed63f1ec4","time":"13:00","name":"Footwork/Growth Palate/Side Knowledge","reward":10,"days":[1]},{"id":"de846b6b-3e4b-4461-bf33-9d6c89c7e2e2","time":"14:00","name":"Trading/Bussiness/Side Knowledge","reward":10,"days":[1]},{"id":"82337ce4-f9c8-4ee1-b5e4-b693c5fbd858","time":"15:00","name":"Freedom","reward":10,"days":[1]},{"id":"25c33eba-2640-487e-862f-e185880e0127","time":"16:00","name":"Music/Technology/News/Side Knowledge","reward":10,"days":[1]},{"id":"f6989d11-e5c4-4497-90c6-194237536eaf","time":"17:00","name":"Cognitive/Side Knowledge","reward":10,"days":[1]},{"id":"4dd309b0-5222-4d0d-9b96-8a343cf05fcd","time":"18:00","name":"Freedom","reward":10,"days":[1]},{"id":"283d935c-33a4-4142-8561-282ba7a7e219","time":"19:00","name":"Book","reward":10,"days":[1]},{"id":"12fe64e4-8f60-4c68-aaa7-5d47aae4ae04","time":"20:00","name":"Bible","reward":10,"days":[1]},{"id":"eac9366d-12e3-41f8-baa2-6729538480d0","time":"21:00","name":"Sleep","reward":10,"days":[1]}],"2":[{"id":"df8b3fc9-6f69-48e2-aeeb-3cabdfd08c39","time":"09:00","name":"Bible","reward":10,"days":[2]},{"id":"b354dd48-25c8-472a-85fb-f55ebee21e3e","time":"10:00","name":"Growth Palate","reward":10,"days":[2]},{"id":"a24213c0-233e-4288-8132-1058cb17822c","time":"11:00","name":"Hebrew","reward":10,"days":[2]},{"id":"ab620074-1a77-48c2-85b8-ee2d05fc85ef","time":"12:00","name":"Freedom","reward":10,"days":[2]},{"id":"3e7e7b69-75af-4e03-9eb6-ed90794b007f","time":"13:00","name":"Cognitive/Side Knowlege","reward":10,"days":[2]},{"id":"3dfb8bad-b344-42ad-91b0-f2b4601e8987","time":"14:00","name":"Trading/Business/Side Knowledge","reward":10,"days":[2]},{"id":"0f801995-fd9f-4a90-b21a-354f6d2e1466","time":"15:00","name":"Freedom","reward":10,"days":[2]},{"id":"dd26d8bb-4863-483b-bd1a-fe5af1d7cb39","time":"16:00","name":"Footwork/Technology/News/Side Knowledge","reward":10,"days":[2]},{"id":"2f3c6e52-3417-4560-a781-2d5251acf368","time":"17:00","name":"Physical/Chinese","reward":10,"days":[2]},{"id":"6cee6bbd-a28f-491d-bcb1-e7d2c7123fe0","time":"18:00","name":"Freedom","reward":10,"days":[2]},{"id":"85c6372d-a9ba-473f-9988-23491e2a850e","time":"19:00","name":"Book/Psychology/Side Knowledge","reward":10,"days":[2]},{"id":"c07f177a-bec5-4a2b-ac30-a624d4425607","time":"20:00","name":"Bible","reward":10,"days":[2]},{"id":"694ce240-e762-4931-a4bb-9336112ed82e","time":"21:00","name":"Sleep","reward":10,"days":[2]}],"3":[{"id":"e6779c78-4835-406f-b47d-64b3e4be71b1","time":"09:00","name":"Bible","reward":10,"days":[3]},{"id":"ed1e71c0-1249-4b98-b82b-8768d29f413c","time":"10:00","name":"Growth Palate","reward":10,"days":[3]},{"id":"2349b52a-d6af-4423-b6d9-74abb75987aa","time":"11:00","name":"Hebrew","reward":10,"days":[3]},{"id":"1cc61809-799c-4c33-b2a8-e1360f64702b","time":"12:00","name":"Freedom","reward":10,"days":[3]},{"id":"21804b8f-bf32-4ab5-82a8-6412a8765d71","time":"13:00","name":"Cognitive/Side Knowlege","reward":10,"days":[3]},{"id":"18ca80ee-adae-44a3-a9ee-43a22a01788b","time":"14:00","name":"Trading/Business/Side Knowledge","reward":10,"days":[3]},{"id":"97a08769-4139-4d2d-8a5c-02d1762aa3e5","time":"15:00","name":"Freedom","reward":10,"days":[3]},{"id":"db11d44f-8402-4904-a1cc-f7ee2a547c22","time":"16:00","name":"Footwork/Technology/News/Side Knowledge","reward":10,"days":[3]},{"id":"48ca027b-2931-4104-bcc6-e79abe5e513b","time":"17:00","name":"Physical/Chinese","reward":10,"days":[3]},{"id":"0a5b72a8-045b-4e55-b536-72842f2c841c","time":"18:00","name":"Freedom","reward":10,"days":[3]},{"id":"a573a8a3-b3db-42ef-8d10-a2476aee3adc","time":"19:00","name":"Book/Psychology/Side Knowledge","reward":10,"days":[3]},{"id":"5fe4bf0e-e8e5-4826-9473-22304f93210d","time":"20:00","name":"Bible","reward":10,"days":[3]},{"id":"4f973fa7-3f50-46d7-baea-d3208f019234","time":"21:00","name":"Sleep","reward":10,"days":[3]}],"4":[{"id":"be722d77-7dde-465f-9234-e45272cc8453","time":"09:00","name":"Bible","reward":10,"days":[4]},{"id":"133705a2-152a-474a-8b12-08668b9f9ba3","time":"10:00","name":"Hebrew","reward":10,"days":[4]},{"id":"32c2f725-d9f4-4fe7-a2b2-7b4e5f37a446","time":"11:00","name":"Chinese","reward":10,"days":[4]},{"id":"07d01d90-81d8-4b24-8d3d-ea240fbb761a","time":"12:00","name":"Freedom","reward":10,"days":[4]},{"id":"489c9e1f-bf02-44a3-8013-2572d4402240","time":"13:00","name":"Footwork/Growth Palate/Side Knowledge","reward":10,"days":[4]},{"id":"8b8f27be-4b4c-47b0-ab7b-3311ffeafd97","time":"14:00","name":"Trading/Bussiness/Side Knowledge","reward":10,"days":[4]},{"id":"fa69a8fb-8dad-4437-938e-21fdf7d0e0bb","time":"15:00","name":"Freedom","reward":10,"days":[4]},{"id":"9de75f65-2117-4165-b46f-d76de7b978b3","time":"16:00","name":"Music/Technology/News/Side Knowledge","reward":10,"days":[4]},{"id":"86723a2c-920a-4357-a7f7-6263b759050b","time":"17:00","name":"Cognitive/Side Knowledge","reward":10,"days":[4]},{"id":"a6b596f4-05ae-4a6b-9656-ff0d6a858108","time":"18:00","name":"Freedom","reward":10,"days":[4]},{"id":"3c87714f-42df-41ab-be2c-4f26736d5cc0","time":"19:00","name":"Book","reward":10,"days":[4]},{"id":"004ed5b0-1a58-4180-9b0f-9eddb4446f5d","time":"20:00","name":"Bible","reward":10,"days":[4]},{"id":"aa908102-c9a9-40c1-97cb-66c44b4a50f2","time":"21:00","name":"Sleep","reward":10,"days":[4]}],"5":[{"id":"e42ec768-c54d-4b34-bd10-139dc46e7a5e","time":"09:00","name":"Bible","reward":10,"days":[5]},{"id":"1e8da79c-569f-40b6-8769-1eec6ff94632","time":"10:00","name":"Hebrew","reward":10,"days":[5]},{"id":"76d13801-3d27-4163-a783-10282fc3dd2e","time":"11:00","name":"Hebrew","reward":10,"days":[5]},{"id":"133962ff-2d5e-4541-a6d8-1c66e2b937f3","time":"12:00","name":"Freedom","reward":10,"days":[5]},{"id":"5cd65268-7da3-4688-814a-0dbaef1981dc","time":"13:00","name":"Cognitive","reward":10,"days":[5]},{"id":"f0c0556f-afb4-4a33-b9f6-e252323fefb8","time":"14:00","name":"Music","reward":10,"days":[5]},{"id":"0ee5f5d2-8eb6-452e-a644-e48e857aa1fb","time":"15:00","name":"Freedom","reward":10,"days":[5]},{"id":"c0aa398a-0ffe-4db8-ac6e-cff4c573b914","time":"16:00","name":"Trading/Business/Side Knowledge","reward":10,"days":[5]},{"id":"4177b6d4-83ea-40e2-8f48-a29d7c3704a1","time":"17:00","name":"Chinese","reward":10,"days":[5]},{"id":"212393fd-726e-4989-bd73-20011813ae26","time":"18:00","name":"Freedom","reward":10,"days":[5]},{"id":"f95fa4e9-f6a7-40c9-aa71-4ab9604592bf","time":"19:00","name":"Chinese/Hebrew","reward":10,"days":[5]},{"id":"24bfcbab-ecf1-42c6-a034-be60e80456ab","time":"20:00","name":"Bible","reward":10,"days":[5]},{"id":"f893738d-5e0d-4bb9-871f-07efdff4b34a","time":"21:00","name":"Sleep","reward":10,"days":[5]}],"6":[{"id":"976d81d6-a9df-4806-845b-eda777025471","time":"09:00","name":"Bible","reward":10,"days":[6]},{"id":"8281cfd6-9e39-4174-a5de-65cd82ea1147","time":"10:00","name":"Hebrew","reward":10,"days":[6]},{"id":"3d76b76b-66b6-4e31-b93d-6e610735a14c","time":"11:00","name":"Chinese","reward":10,"days":[6]},{"id":"f7b41791-4c7c-49ff-8d67-a748dec86b5d","time":"12:00","name":"Freedom","reward":10,"days":[6]},{"id":"a815fed6-81a4-40fe-b6c1-54577141922e","time":"13:00","name":"Footwork/Growth Palate/Side Knowledge","reward":10,"days":[6]},{"id":"2c591731-057a-4427-9e16-fd1e000dc3e1","time":"14:00","name":"Trading/Bussiness/Side Knowledge","reward":10,"days":[6]},{"id":"e5bdb22c-e23d-40b7-a256-0b1a0b733b0b","time":"15:00","name":"Freedom","reward":10,"days":[6]},{"id":"f4d3b266-b7ee-42c9-8e1a-19f0adf47ee2","time":"16:00","name":"Music/Technology/News/Side Knowledge","reward":10,"days":[6]},{"id":"695fb956-9412-470b-9243-b5b6a4f617a6","time":"17:00","name":"Cognitive/Side Knowledge","reward":10,"days":[6]},{"id":"e50c288d-109f-4435-98f0-d101b89e8819","time":"18:00","name":"Freedom","reward":10,"days":[6]},{"id":"e8087356-5577-4e93-89af-a8a66fe0db67","time":"19:00","name":"Book","reward":10,"days":[6]},{"id":"8d02cefa-f6d2-48e6-bfc2-a24097e53b84","time":"20:00","name":"Bible","reward":10,"days":[6]},{"id":"fded2c86-ada0-47b5-a234-b9c7ffcd4d0d","time":"21:00","name":"Sleep","reward":10,"days":[6]}]},"weeklyVersionNames":{"1":"3 (12h)","2":"2 (12h)","3":"2 (12h)","4":"3 (12h)","5":"1 (12h)","6":"3 (12h)"},"dailyVersionSchedules":{},"dailyVersionNames":{}};
+const VCH_IMPORT_FLAG = "vchVersionsImported_v1";
+
+function importVchVersionsOnce(){
+  const u=user();
+  if(!u)return;
+  if(u[VCH_IMPORT_FLAG])return;
+
+  const imported=Array.isArray(VCH_VERSION_IMPORT.scheduleVersions)
+    ? JSON.parse(JSON.stringify(VCH_VERSION_IMPORT.scheduleVersions)) : [];
+
+  if(!Array.isArray(u.scheduleVersions))u.scheduleVersions=[];
+
+  if(u.scheduleVersions.length===0){
+    u.scheduleVersions=imported;
+  }else{
+    const existing=new Set(u.scheduleVersions.map(v=>v.id).filter(Boolean));
+    imported.forEach(v=>{
+      if(!v.id || !existing.has(v.id)){
+        u.scheduleVersions.push(v);
+        if(v.id)existing.add(v.id);
+      }
+    });
+  }
+
+  if(!u.weeklyVersionNames || Object.keys(u.weeklyVersionNames).length===0){
+    u.weeklyVersionNames=JSON.parse(JSON.stringify(VCH_VERSION_IMPORT.weeklyVersionNames||{}));
+  }
+  if(!u.weeklyVersionSchedules || Object.keys(u.weeklyVersionSchedules).length===0){
+    u.weeklyVersionSchedules=JSON.parse(JSON.stringify(VCH_VERSION_IMPORT.weeklyVersionSchedules||{}));
+  }
+  if(!u.dailyVersionNames || Object.keys(u.dailyVersionNames).length===0){
+    u.dailyVersionNames=JSON.parse(JSON.stringify(VCH_VERSION_IMPORT.dailyVersionNames||{}));
+  }
+  if(!u.dailyVersionSchedules || Object.keys(u.dailyVersionSchedules).length===0){
+    u.dailyVersionSchedules=JSON.parse(JSON.stringify(VCH_VERSION_IMPORT.dailyVersionSchedules||{}));
+  }
+
+  u[VCH_IMPORT_FLAG]=true;
+  persist();
+}
+
 
 /* ---------- Storage ---------- */
 
@@ -472,6 +528,8 @@ function newAccount(name){
 }
 
 function user(){return db.accounts[activeId]}
+
+importVchVersionsOnce();
 
 function migrateSchedules(u){
   if(!Array.isArray(u.schedules))u.schedules=[];
@@ -645,9 +703,6 @@ function requestRender(){
 function render(){
   const u=user(),d=day();
   if(!u)return;
-  migrateSchedules(u);
-  applyDailyPointDecay();
-
   if(!u.completedToday[d])u.completedToday[d]={};
   if(u._dailyClaimCleanupDay!==d){
     cleanupDailyQuestClaims();
@@ -798,8 +853,16 @@ function renderScheduleVersionChoice(){
     const oldTo=Number(to.value)||count;
     const fromValue=Math.min(Math.max(oldFrom,1),Math.max(count,1));
     const toValue=Math.min(Math.max(oldTo,fromValue),Math.max(count,1));
-    from.innerHTML=count?Array.from({length:count},(_,i)=>`<option value="${i+1}">Version ${i+1}</option>`).join(""):"<option value="1">Version 1</option>";
-    to.innerHTML=count?Array.from({length:count},(_,i)=>`<option value="${i+1}">Version ${i+1}</option>`).join(""):"<option value="1">Version 1</option>";
+    const cacheKey=`${count}`;
+    if(from.dataset.optionsKey!==cacheKey){
+      const options=count
+        ?Array.from({length:count},(_,i)=>`<option value="${i+1}">Version ${i+1}</option>`).join("")
+        :'<option value="1">Version 1</option>';
+      from.innerHTML=options;
+      to.innerHTML=options;
+      from.dataset.optionsKey=cacheKey;
+      to.dataset.optionsKey=cacheKey;
+    }
     from.value=String(Math.min(fromValue,count||1));
     to.value=String(Math.min(Math.max(toValue,fromValue),count||1));
     if(count){
@@ -922,7 +985,9 @@ function addVersionEditorRow(){
   const editor=body.closest(".versionEditor");
   if(editor){
     requestAnimationFrame(()=>{
-      editor.scrollTo({top:editor.scrollHeight,behavior:"smooth"});
+      editor.scrollTop=editor.scrollHeight;
+      const last=body.lastElementChild;
+      last?.querySelector("input")?.focus({preventScroll:true});
     });
   }
 }
@@ -2048,6 +2113,9 @@ document.addEventListener("visibilitychange",()=>{
   if(document.visibilityState==="hidden")flushSave();
 });
 
+window.addEventListener("error",e=>{
+  console.error("LifeQuest runtime error:",e.error||e.message);
+});
 /* Initial render — no storage write required. */
 applyDailyPointDecay();
 render();
@@ -2056,6 +2124,8 @@ scheduleNextDecayCheck();
 if(!window.lifeQuestHistoryListenersBound){
   document.getElementById("historyPrevMonth")?.addEventListener("click",()=>changeHistoryMonth(-1));
   document.getElementById("historyNextMonth")?.addEventListener("click",()=>changeHistoryMonth(1));
+  document.getElementById("calendarPrevMonth")?.addEventListener("click",()=>changeCalendarMonth(-1));
+  document.getElementById("calendarNextMonth")?.addEventListener("click",()=>changeCalendarMonth(1));
   window.lifeQuestHistoryListenersBound=true;
 }
 </script>
